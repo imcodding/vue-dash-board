@@ -1,0 +1,148 @@
+@charset "UTF-8";
+
+/**
+ 전체 배경
+ 배경 파일 이름 업로드시 dashBG.jpg 으로 고정 사용. 파일명/확장자 수정 금지
+**/
+.darkTheme #hd-All-Content {
+  background: url("../../../static/img/dashBG.jpg") no-repeat;
+}
+
+/*====================
+  header
+====================*/
+#hd-header {width: 100%;height: 100%;}
+
+/*헤더 영역 높이값 조절*/
+div[id^="hd-header"] #logo {position: absolute;top: 0;left: 0;}
+
+div[id^="hd-header"] .hd-Main-Title {
+  text-shadow: 1px 1px rgba(0, 0, 0, 0.7);
+}
+
+/*Date, Refresh*/
+
+div[id^="hd-Admin-Function"] .hd-Refresh {
+  background: #010d1a;
+}
+
+div[id^="hd-Admin-Function"] .Ref-fillbar {
+  background: #00adee;
+}
+
+/*button, functionBtn*/
+
+div[id^="hd-Admin-Button"]>.AdmBtn div {
+  background: #343b45;
+}
+
+div[id^="hd-Admin-Button"]>.AdmBtn div:hover,
+div[id^="hd-Admin-Button"]>.AdmBtn div:active {
+  background: #4f6d9b;
+}
+
+/*관리자용 운영자용 버튼 활성화시 색상*/
+
+
+div[id^="hd-Admin-Button"]>.hd-btn>div {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+
+/*====================
+  Contents 영역 기본
+====================*/
+
+
+/*컨텐츠 영역 높이값 조절*/
+
+
+.darkTheme div[class^="hd-column"]>.hd-title-section {
+  background:#545454;
+}
+.darkTheme div[class^="hd-column"]>.hd-title-section-sub {
+  background:#8C8C8C;
+}
+
+.darkTheme div[class^="hd-column"]>.hd-no-title-section {
+  background:transparent;
+}
+
+.darkTheme div[class^="hd-column"] .hd-tit-icon-section {
+  /*background: url("../images/titBG2.png") top left no-repeat;*/
+}
+.darkTheme div[class^="hd-column"] i.icon-arrow{background-color: #898989;}
+
+
+/*====================
+  위젯
+====================*/
+
+
+#dashMain .widgetBox {
+  background:#0b0e13
+}
+
+
+/*====================
+  jqx css
+====================*/
+
+
+.widgetItemBox .jqx-widget-header {
+  background: #434343;
+}
+
+.widgetItemBox .jqx-widget-content {
+  background: transparent;
+  border: transparent;
+  color: #fff;
+}
+
+.hd-section-content .jqx-widget-content{background:transparent!important}/* 최소화했을경우 line 생김 제거 */
+
+#dashMain .hd-top-menu {
+
+  background:#1B1E23;
+  border-bottom:1px solid #3B3F47;
+}
+
+/*====================
+ 그리드
+====================*/
+.darkTheme .hd-section-content .jqx-widget-header{background:#434343;color:#fff;}
+.darkTheme .hd-section-content .jqx-widget .jqx-grid-cell{}
+.darkTheme .jqx-grid-content div[role="row"]{color:#fff;}
+.darkTheme .jqx-grid-content div[role="row"]:nth-child(odd) {
+  background:#525252 !important;
+
+}
+
+.darkTheme .jqx-grid-content div[role="row"]:nth-child(even) {
+  background: #484848 !important;
+
+}
+/*.jqx-grid-content div[role="row"]:nth-child(even):hover{background:red!important}*/
+
+.darkTheme .jqx-widget {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.darkTheme .jqx-grid-cell {
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  color: #fff
+}
+
+.darkTheme .jqx-grid-column-header {
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.darkTheme .jqx-grid-group-cell {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.itemBox > div[id*="highchart"]{background:rgba(100,231,255,0.0)}
+
+.darkTheme .map-grp>div {
+  background-color: #545454;
+}

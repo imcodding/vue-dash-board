@@ -1,0 +1,223 @@
+@charset "UTF-8";
+/*==================
+
+ highcharts - white.css
+
+ 생성일  2024.10.11
+
+ ==================*/
+/* Series options */
+/* Default colors */
+.whiteTheme .highcharts-color-0 {
+  fill: #7786D8;
+  /*stroke: #7786d8;*/
+}
+
+.whiteTheme .highcharts-color-1 {
+  fill: #64B2F8;
+  /*stroke: #64B2F8;*/
+}
+
+.whiteTheme .highcharts-color-2 {
+  fill: #78D2C7;
+  /*stroke: #78D2C7;*/
+}
+
+.whiteTheme .highcharts-color-3 {
+  fill: #B7DB89;
+  /*stroke: #B7DB89;*/
+}
+
+.whiteTheme .highcharts-color-4 {
+  fill: #DDE74D;
+  /*stroke: #DDE74D;*/
+}
+
+.whiteTheme .highcharts-color-5 {
+  fill: #D781B9;
+  /*stroke: #D781B9;*/
+}
+
+.whiteTheme .highcharts-color-6 {
+  fill: #AB93C5;
+  /*stroke: #AB93C5;*/
+}
+
+.whiteTheme .highcharts-color-7 {
+  fill: #2A398B;
+  /*stroke: #2A398B;*/
+}
+.whiteTheme .highcharts-color-8 {
+  fill: #1765AB;
+  /*stroke: #1765AB;*/
+}
+
+.whiteTheme .highcharts-color-9 {
+  fill: #2B857A;
+  /*stroke: #2B857A;*/
+}
+
+.whiteTheme .highcharts-color-10 {
+  fill: #6A8E3C;
+  /*stroke: #aaeeee;*/
+}
+
+.whiteTheme .highcharts-area {
+  fill-opacity: 0.75;
+  stroke-width: 0;
+}
+
+.whiteTheme .highcharts-markers {
+  stroke-width: 1px;
+  /*stroke: #2a2a2b;*/
+}
+
+.whiteTheme .highcharts-point {
+  stroke-width: 1px;
+}
+
+.whiteTheme .highcharts-dense-data .highcharts-point {
+  stroke-width: 0;
+}
+
+.whiteTheme .highcharts-data-label {
+  font-size: 0.9em;
+  font-weight: bold;
+}
+
+.whiteTheme .highcharts-data-label-box {
+  fill: none;
+  stroke-width: 0;
+}
+
+.whiteTheme .highcharts-data-label text, text.highcharts-data-label {
+  fill: #555!important;
+  color: #555!important;
+}
+
+.whiteTheme .highcharts-data-label-connector {
+  fill: none;
+}
+
+.whiteTheme .highcharts-halo {
+  fill-opacity: 0.25;
+  stroke-width: 0;
+}
+
+.whiteTheme .highcharts-series:not(.highcharts-pie-series) .highcharts-point-select {
+  fill: #606063;
+  /*stroke: #fff;*/
+}
+
+.whiteTheme .highcharts-column-series rect.highcharts-point {
+  /*stroke: #2a2a2b;*/
+}
+
+.whiteTheme .highcharts-column-series .highcharts-point {
+  transition: fill-opacity 250ms;
+}
+
+.whiteTheme .highcharts-column-series .highcharts-point-hover {
+  fill-opacity: 0.75;
+  transition: fill-opacity 50ms;
+}
+
+.whiteTheme .highcharts-pie-series .highcharts-point {
+  stroke-linejoin: round;
+  /*stroke: #2a2a2b;*/
+}
+
+.whiteTheme .highcharts-pie-series .highcharts-point-hover {
+  fill-opacity: 0.75;
+  transition: fill-opacity 50ms;
+}
+
+.whiteTheme .highcharts-funnel-series .highcharts-point {
+  stroke-linejoin: round;
+  /*stroke: #2a2a2b;*/
+}
+
+.whiteTheme .highcharts-funnel-series .highcharts-point-hover {
+  fill-opacity: 0.75;
+  transition: fill-opacity 50ms;
+}
+
+.whiteTheme .highcharts-funnel-series .highcharts-point-select {
+  fill: inherit;
+  stroke: inherit;
+}
+
+.whiteTheme .highcharts-pyramid-series .highcharts-point {
+  stroke-linejoin: round;
+  /*stroke: #2a2a2b;*/
+}
+
+.whiteTheme .highcharts-pyramid-series .highcharts-point-hover {
+  fill-opacity: 0.75;
+  transition: fill-opacity 50ms;
+}
+
+.whiteTheme .highcharts-pyramid-series .highcharts-point-select {
+  fill: inherit;
+  stroke: inherit;
+}
+
+.whiteTheme .highcharts-solidgauge-series .highcharts-point {
+  stroke-width: 0;
+}
+
+.whiteTheme .highcharts-treemap-series .highcharts-point {
+  stroke-width: 1px;
+  /*stroke: #707073;*/
+  transition: stroke 250ms, fill 250ms, fill-opacity 250ms;
+}
+
+.whiteTheme .highcharts-treemap-series .highcharts-point-hover {
+  /*stroke: #666;*/
+  transition: stroke 25ms, fill 25ms, fill-opacity 25ms;
+}
+
+.whiteTheme .highcharts-treemap-series .highcharts-above-level {
+  display: none;
+}
+
+.whiteTheme .highcharts-treemap-series .highcharts-internal-node {
+  fill: none;
+}
+
+.whiteTheme .highcharts-treemap-series .highcharts-internal-node-interactive {
+  fill-opacity: 0.15;
+  cursor: pointer;
+}
+
+.whiteTheme .highcharts-treemap-series .highcharts-internal-node-interactive:hover {
+  fill-opacity: 0.75;
+}
+
+/* Legend */
+.whiteTheme .highcharts-legend-box {
+  fill: none;
+  stroke-width: 0;
+}
+
+.whiteTheme .highcharts-legend-item text {
+  fill: #555!important;
+  font-weight: bold;
+  font-size: 1em;
+  cursor: pointer;
+  stroke-width: 0;
+}
+
+
+.whiteTheme .highcharts-axis-labels text{
+  fill: #555555 !important;
+  color: #555555 !important;
+}
+
+ .whiteTheme .highcharts-bar-series tspan{fill:#555; color:#555;stroke-width: 2px;stroke: #fff;}
+
+
+.whiteTheme .highcharts-axis-line{stroke: #bababa;}
+
+.whiteTheme .highcharts-background{fill:#fff!important;}
+

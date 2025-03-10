@@ -1,0 +1,555 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dash.widget.com.persistence.WidgetComMapperV65">
+
+    <!-- 장애개수 -->
+    <select id="selectEvtCnt" resultType="CamelHashMap">
+        SELECT
+            SUM(IF(org_evt_level=1, 1, 0)) AS INFO_CNT,
+            SUM(IF(org_evt_level=2, 1, 0)) AS WARNING_CNT,
+            SUM(IF(org_evt_level=3, 1, 0)) AS MINOR_CNT,
+            SUM(IF(org_evt_level=4, 1, 0)) AS MAJOR_CNT,
+            SUM(IF(org_evt_level=5, 1, 0)) AS CRITICAL_CNT
+        FROM (
+				SELECT
+					DISTINCT
+					A.YMDHMS, A.GRP_NAME, DATE_FORMAT( CURRENT_TIMESTAMP() , '%Y-%m-%d %H:%i:%s' ) AS END_YMDHMS,
+					A.SRC_TYPE, CMCD.CODE_VALUE1 AS SRC_TYPE_STR,
+					A.CODE,
+					CASE
+						WHEN A.SRC_TYPE = 'UPS' THEN
+							CASE A.CODE_TYPE
+								WHEN '0' THEN
+									CONCAT(A.DEV_NAME, '[', A.DEV_IP, '] ', IFNULL(A.MEMO, ''))
+								ELSE
+									CONCAT(A.DEV_NAME, '[', A.DEV_IP, '] ', REPLACE(REPLACE(REPLACE(A.EVT_NAME, ' 초과', ''), '미만', ''), ' 이상', ''), CASE A.SRC_IDX WHEN 1 THEN '(L1)' WHEN 2 THEN '(L2)' ELSE '' END, ' [', TRUNCATE(A.REAL_VAL, 1), '/', A.LIMIT_VAL, ']' )
+							END
+						WHEN A.SRC_TYPE IN ('RTU', 'VSVR_VM_00') THEN A.SRC_INFO
+						ELSE CONCAT(A.SRC_INFO, ' ', IFNULL(A.EVT_VALUES, ''))
+					END AS SRC_INFO,
+					CMDEV.DEV_LOCATION,
+					A.EVT_NAME, A.EVT_VALUES,
+					A.EVT_LEVEL,
+					org_evt_level,
+					TIMESTAMPDIFF(SECOND, YMDHMS, CURRENT_TIMESTAMP()) AS SUM_SEC,
+					CMCD3.CODE_VALUE1 AS STATUS,
+					CASE A.PROGRESS_STATE
+						WHEN 'C' THEN ''
+						ELSE CMCD2.CODE_VALUE1
+					END AS PROGRESS_STATE,
+					A.MNG_NO,
+					A.SRC_IDX, A.SRC_GRP_NO, A.SEQ_NO, A.DEV_IP, A.RECEIPT_MEMO, (SELECT user_name FROM COM_USER WHERE USER_ID = a.RECEIPT_USER ) AS receipt_User
+					, A.ENG_NAME, A.LIMIT_DESC, A.DEV_KIND2, A.DIS_DEV_NAME, A.DEV_NAME, A.IF_NAME, A.IF_ALIAS,
+					CASE A.PROGRESS_STATE
+						WHEN 'A' THEN (SELECT CODE_VALUE1 FROM CM_CODE10 WHERE CODE_KIND = 'EVENT_STATUS' AND CODE_ID = A.PROGRESS_STATE)
+						ELSE CMLV.CODE_VALUE1
+					END AS EVT_LEVEL_STR,
+					A.EVT_CAUSE,
+					(SELECT	CODE_VALUE1 AS LABEL FROM CM_CODE10 WHERE CODE_KIND = 'EVENT_CAUSE' AND CODE_ID = A.EVT_CAUSE) AS EVT_CAUSE_STR
+				FROM (
+						SELECT	A.YMDHMS,
+								CASE
+									WHEN A.SRC_TYPE = 'SUB' THEN
+										(SELECT GRP_NAME FROM NT_CFG_GROUP WHERE GRP_NO = (SELECT GRP_NO FROM NT_CFG_SUBNET WHERE SUB_NO = A.MNG_NO))
+									WHEN A.SRC_TYPE = 'SVC' THEN
+										(SELECT GRP_NAME FROM NT_CFG_GROUP WHERE GRP_NO = (SELECT GRP_NO FROM TB_COM_SERVICE WHERE SVC_NO = A.SRC_SVR_NO AND MNG_NO = A.MNG_NO ))
+									ELSE A.GRP_NAME
+								END AS GRP_NAME,
+								A.SRC_TYPE,
+								A.SRC_INFO,
+								B.EVT_NAME, A.EVT_VALUES, A.EVT_VALUES_SRC,
+								IF(PROGRESS_STATE='A', -1, A.EVT_LEVEL) AS EVT_LEVEL,
+								A.EVT_LEVEL AS org_evt_level,
+								A.SUM_SEC, A.DIS_STATUS AS STATUS, IFNULL(NULLIF(PROGRESS_STATE,''), 'C') AS PROGRESS_STATE,
+								A.MNG_NO, A.SRC_IDX, A.SRC_GRP_NO, A.SEQ_NO, A.DEV_IP,
+								A.RECEIPT_MEMO, a.RECEIPT_USER
+								,A.ENG_NAME,
+								CASE
+									 WHEN A.SRC_TYPE = 'SVR' AND A.CODE = 'FILE_CHECK_00' THEN substring_index(A.MEMO,' : ',1)
+									 WHEN A.SRC_TYPE IN ('SVR','DEV') AND (A.CODE LIKE '%CLI_%' OR A.CODE LIKE 'FILE_LOG_%') THEN  A.MEMO
+									 WHEN A.SRC_TYPE = 'DEV' AND A.CODE LIKE '%QOS_%' THEN  A.MEMO
+									ELSE B.LIMIT_DESC
+								END LIMIT_DESC,
+								A.DEV_KIND2,
+								A.DIS_DEV_NAME, A.DEV_NAME, A.IF_NAME, A.IF_ALIAS, A.CODE, A.REAL_VAL, A.LIMIT_VAL, B.CODE_TYPE, A.MEMO, A.EVT_CAUSE
+						FROM	(<include refid="CommonV65.selectRtEvtDetailList"/>) A, (<include refid="CommonV65.getProfileEvtCodeList"/>) B
+						WHERE	A.CODE = B.CODE
+						AND		A.PROFILE_NO = B.PROFILE_NO
+						AND		A.SRC_TYPE NOT IN ('ETC', 'AP', 'RTU', 'SYSLOG', 'TRAP', 'WAS')
+						AND 	A.CODE NOT LIKE CONCAT('VSVR_VM', '%')
+						UNION ALL
+						SELECT
+								A.YMDHMS,
+								A.GRP_NAME,
+								A.SRC_TYPE,
+								A.SRC_INFO,
+								B.EVT_NAME, A.EVT_VALUES, A.EVT_VALUES_SRC,
+								IF(PROGRESS_STATE='A', -1, A.EVT_LEVEL) AS EVT_LEVEL,
+								A.EVT_LEVEL AS org_evt_level,
+								A.SUM_SEC, A.DIS_STATUS AS STATUS, IFNULL(NULLIF(PROGRESS_STATE,''), 'C') AS PROGRESS_STATE,
+								C.MNG_NO, A.SRC_IDX, A.SRC_GRP_NO, A.SEQ_NO, IFNULL(A.DEV_IP, C.UUID) AS DEV_IP,
+								A.RECEIPT_MEMO, A.RECEIPT_USER,
+								A.ENG_NAME, B.LIMIT_DESC, A.DEV_KIND2,
+								A.DIS_DEV_NAME, A.DEV_NAME, A.IF_NAME, A.IF_ALIAS, A.CODE, A.REAL_VAL, A.LIMIT_VAL, B.CODE_TYPE, A.MEMO, A.EVT_CAUSE
+						FROM	(<include refid="CommonV65.selectRtEvtDetailList"/>) A, (<include refid="CommonV65.getProfileEvtCodeList"/>) B,
+								ESXI_VIRTUALMACHINE C
+						WHERE	A.CODE = B.CODE
+						AND		A.PROFILE_NO = B.PROFILE_NO
+						AND		A.SRC_MNG_NO = C.MNG_NO
+						AND		A.SRC_TYPE = 'VSVR'
+						AND 	A.CODE LIKE CONCAT('VSVR_VM', '%')
+						UNION ALL
+						SELECT A.YMDHMS,
+								'' AS GRP_NAME,
+								A.SRC_TYPE,
+								A.SRC_INFO,
+								B.EVT_NAME, A.EVT_VALUES, A.EVT_VALUES_SRC,
+								IF(PROGRESS_STATE='A', -1, A.EVT_LEVEL) AS EVT_LEVEL,
+								A.EVT_LEVEL AS org_evt_level,
+								A.SUM_SEC, A.DIS_STATUS AS STATUS, IFNULL(NULLIF(PROGRESS_STATE,''), 'C') AS PROGRESS_STATE,
+								0 AS MNG_NO, A.SRC_IDX, A.SRC_GRP_NO, A.SEQ_NO, C.DEV_IP,
+								A.RECEIPT_MEMO, a.RECEIPT_USER,
+								A.ENG_NAME, B.LIMIT_DESC, A.DEV_KIND2,
+								A.DIS_DEV_NAME, A.DEV_NAME, A.IF_NAME, A.IF_ALIAS, A.CODE, A.REAL_VAL, A.LIMIT_VAL, B.CODE_TYPE, A.MEMO, A.EVT_CAUSE
+						FROM 	(<include refid="CommonV65.selectRtEvtDetailList"/>) A, (<include refid="CommonV65.getProfileEvtCodeList"/>) B, CM_TM_ETC C
+						WHERE 	A.CODE = B.CODE
+						AND		A.PROFILE_NO = B.PROFILE_NO
+						AND 	A.SRC_IP = C.DEV_IP
+						AND 	A.SRC_TYPE = 'ETC'
+						UNION ALL
+						SELECT  A.YMDHMS,
+								A.GRP_NAME,
+								SRC_TYPE,
+								A.SRC_INFO,
+								CASE A.SRC_TYPE
+									WHEN 'SYSLOG' THEN
+										(SELECT A.CAUSE_MEMO FROM TB_NMS_SYSLOG_EVT WHERE EVT_NO = A.SRC_IDX AND USE_FLAG = 1 LIMIT 1)
+									WHEN 'TRAP' THEN
+										CASE WHEN A.CODE IN ('PTN_00','PTN_01') THEN
+											(SELECT EVT_NM AS EVT_NAME FROM TB_COM_EVTCODE WHERE EVT_CD = A.CODE AND USE_FLAG = 1 LIMIT 1 )
+										ELSE
+											A.CAUSE_MEMO
+										END
+								END AS EVT_NAME, A.EVT_VALUES, A.EVT_VALUES_SRC,
+								IF(PROGRESS_STATE='A', -1, A.EVT_LEVEL) AS EVT_LEVEL,
+								A.EVT_LEVEL AS org_evt_level,
+								SUM_SEC, A.DIS_STATUS AS STATUS, IFNULL(NULLIF(PROGRESS_STATE,''), 'C') AS PROGRESS_STATE,
+								A.MNG_NO,
+								CASE WHEN A.SRC_TYPE = 'SUB' THEN A.SRC_SUB_NO
+								ELSE A.SRC_IDX END SRC_IDX, A.SRC_GRP_NO,
+								A.SEQ_NO, A.DEV_IP,
+								RECEIPT_MEMO, a.RECEIPT_USER,
+								A.ENG_NAME,
+								CASE A.SRC_TYPE
+									WHEN 'SYSLOG' THEN
+										CASE A.CODE
+											WHEN 'SYSLOG_00' THEN A.MEMO
+											ELSE (SELECT A.CAUSE_MEMO FROM TB_NMS_SYSLOG_EVT WHERE EVT_NO = A.SRC_IDX AND USE_FLAG = 1 LIMIT 1)
+										END
+									WHEN 'TRAP' THEN
+										CASE A.CODE
+										  WHEN 'TRAP_00' THEN  A.MEMO
+										  WHEN 'PTN_00' THEN  (SELECT EVT_NM AS EVT_NAME FROM TB_COM_EVTCODE WHERE EVT_CD = A.CODE AND USE_FLAG = 1 LIMIT 1 )
+										  ELSE  CONCAT(A.CAUSE_MEMO, '_', A.MEMO)
+										END
+									ELSE MEMO
+								END AS LIMIT_DESC,
+								A.DEV_KIND2,
+								A.DIS_DEV_NAME, A.DEV_NAME, A.IF_NAME, A.IF_ALIAS, A.CODE, A.REAL_VAL, A.LIMIT_VAL, '' AS CODE_TYPE, A.MEMO, A.EVT_CAUSE
+						FROM 	(<include refid="CommonV65.selectRtEvtDetailList"/>) A
+						<choose>
+							<when test="_parameter.containsKey('webSiteName') and webSiteName == 'HyundaiCar'">
+								WHERE 	A.SRC_TYPE = 'TRAP'
+							</when>
+							<otherwise>
+								WHERE 	A.SRC_TYPE IN ('SYSLOG', 'TRAP')
+							</otherwise>
+						</choose>
+						UNION ALL
+						SELECT A.YMDHMS,
+								A.GRP_NAME,
+								A.SRC_TYPE,
+								CONCAT(
+								IF (	ISNULL(C.USER_DEV_NAME)	OR C.USER_DEV_NAME = '', C.DEV_NAME, C.USER_DEV_NAME ),
+								'[',
+								C.DEV_IP,
+								']',
+								' ',
+								D.SENSOR_NAME,
+								' ',
+								E.CODE_NAME,
+								' ',
+								IFNULL( A.MEMO,	'' ),
+								CASE B.CODE_TYPE WHEN 1 THEN CONCAT(' [', A.REAL_VAL ,']') ELSE '' END
+								) AS SRC_INFO,
+								( SELECT EVT_NM AS EVT_NAME FROM TB_COM_EVTCODE
+									WHERE SYSTEM_CD IN ('DEV', 'FMS') <!-- 추후  SYSTEM_CD를 'FMS'로 변경 필요함 * RTU 장애 * -->
+									AND EVT_CD = A.CODE AND PROFILE_NO = C.PROFILE_NO ) AS EVT_NAME,
+								A.EVT_VALUES, A.EVT_VALUES_SRC,
+								IF(PROGRESS_STATE='A', -1, A.EVT_LEVEL) AS EVT_LEVEL,
+								A.EVT_LEVEL AS org_evt_level,
+								SUM_SEC, A.DIS_STATUS AS STATUS, IFNULL(NULLIF(PROGRESS_STATE,''), 'C') AS PROGRESS_STATE,
+								A.MNG_NO, SRC_IDX, SRC_GRP_NO, SEQ_NO, C.DEV_IP,
+								RECEIPT_MEMO, a.RECEIPT_USER,
+								A.ENG_NAME,
+								B.LIMIT_DESC, A.DEV_KIND2,
+								A.DIS_DEV_NAME, A.DEV_NAME, A.IF_NAME, A.IF_ALIAS, A.CODE, A.REAL_VAL, A.LIMIT_VAL, B.CODE_TYPE, A.MEMO, A.EVT_CAUSE
+						FROM 	(<include refid="CommonV65.selectRtEvtDetailList"/>) A, (<include refid="CommonV65.getProfileEvtCodeList"/>) B, CM_DEV10 C, CM_FMS_SENSOR D, CM_FMS_CODE E
+						WHERE 	A.CODE = B.CODE
+						AND		A.PROFILE_NO = B.PROFILE_NO
+						AND 	A.SRC_MNG_NO = C.MNG_NO
+						AND		A.SRC_MNG_NO = D.MNG_NO
+						AND		A.SRC_IDX = D.FMS_SEQ_NO
+						AND     D.SENSOR_KIND = E.CODE_ID
+						AND 	A.SRC_TYPE = 'RTU'
+						UNION ALL
+						SELECT A.YMDHMS,
+								(SELECT GRP_NAME FROM NT_CFG_GROUP WHERE GRP_NO = (SELECT GRP_NO FROM CM_DEV10 WHERE MNG_NO = A.SRC_MNG_NO)) AS GRP_NAME,
+								A.SRC_TYPE,
+								CONCAT(C.WAS_NM, '[', (SELECT DEV_IP FROM CM_DEV10 WHERE MNG_NO = A.SRC_MNG_NO), ':', C.CONN_PORT , ']') AS SRC_INFO,
+								B.EVT_NAME, A.EVT_VALUES, A.EVT_VALUES_SRC,
+								IF(PROGRESS_STATE='A', -1, A.EVT_LEVEL) AS EVT_LEVEL,
+								A.EVT_LEVEL AS org_evt_level,
+								A.SUM_SEC, A.DIS_STATUS AS STATUS, IFNULL(NULLIF(PROGRESS_STATE,''), 'C') AS PROGRESS_STATE,
+								C.MNG_NO, SRC_IDX, A.SRC_GRP_NO, A.SEQ_NO, DEV_IP,
+								A.RECEIPT_MEMO, a.RECEIPT_USER,
+								A.ENG_NAME, B.LIMIT_DESC, A.DEV_KIND2,
+								A.DIS_DEV_NAME, A.DEV_NAME, A.IF_NAME, A.IF_ALIAS, A.CODE, A.REAL_VAL, A.LIMIT_VAL, B.CODE_TYPE, A.MEMO, A.EVT_CAUSE
+						FROM	(<include refid="CommonV65.selectRtEvtDetailList"/>) A, (<include refid="CommonV65.getProfileEvtCodeList"/>) B, NT_SVR_WAS C
+						WHERE	A.CODE = B.CODE
+						AND		A.PROFILE_NO = B.PROFILE_NO
+						AND		A.SRC_MNG_NO = C.MNG_NO
+						AND		A.SRC_IDX = C.WAS_NO
+						AND		A.SRC_TYPE = 'WAS'
+					) A , CM_DEV10 CMDEV, CM_CODE10 CMCD, CM_CODE10 CMCD2, CM_CODE10 CMCD3,
+					 (SELECT * FROM CM_CODE10 WHERE CODE_KIND = 'WEB_CONF' AND CODE_ID LIKE 'EVT_LEVEL%') AS CMLV
+				WHERE A.MNG_NO = CMDEV.MNG_NO
+				  AND A.SRC_TYPE = CMCD.CODE_ID
+				  AND CMCD.CODE_KIND = 'SRC_TYPE'
+				  AND A.EVT_LEVEL = CMLV.CODE_VALUE3
+				  AND IFNULL(A.PROGRESS_STATE, 'C') = CMCD2.CODE_ID
+				  AND CMCD2.CODE_KIND = 'EVENT_STATUS'
+				  AND A.STATUS = CMCD3.CODE_ID
+				  AND CMCD3.CODE_KIND = 'EVENT_STATUS'
+				<if test="_parameter.containsKey('srcType') and srcType != 'ALL'">
+					<choose>
+						<when test="srcType == 'DEV'">
+							AND A.SRC_TYPE IN ('DEV', 'IF')
+						</when>
+						<otherwise>
+							AND A.SRC_TYPE = #{srcType}
+						</otherwise>
+					</choose>
+				</if>
+				<if test="_parameter.containsKey('ifIdx') and ifIdx != -1" >
+					AND A.SRC_IDX = #{ifIdx}
+				</if>
+        )sub
+    </select>
+
+    <!-- 장애현황 -->
+    <select id="selectEvtStatus" resultType="CamelHashMap">
+        SELECT
+            code.evt_name,
+            code.limit_desc ,
+            evt.code,
+            evt.evt_level,
+            case evt.evt_level
+                WHEN 1 THEN '정보'
+                WHEN 2 THEN '주의'
+                WHEN 3 THEN '알람'
+                WHEN 4 THEN '경보'
+                WHEN 5 THEN '장애'
+            end evt_level_str,
+            evt.src_type,
+            date_format(evt.last_udt, '%Y-%m-%d %H:%m:%i') AS last_udt,
+            if(dev_name IS NULL OR dev.dev_name ='', dev.user_dev_name, dev_name) AS dev_name,
+            dev.dev_kind1,
+            dev.dev_kind2,
+            dev.model,
+            dev.vendor
+        FROM cm_evt evt
+        INNER JOIN cm_dev10 dev ON evt.src_mng_no = dev.mng_no
+        INNER JOIN cm_evt_code code ON evt.code = code.code
+        AND src_type in ('DEV','SVR')
+    </select>
+
+    <!-- 장애현황 조회 -->
+    <select id="selectEvtStatusList" resultType="CamelHashMap">
+        SELECT DISTINCT
+		       	A.YMDHMS, A.GRP_NAME, DATE_FORMAT( CURRENT_TIMESTAMP() , '%Y-%m-%d %H:%i:%s' ) AS END_YMDHMS,
+		       	A.SRC_TYPE, CMCD.CODE_VALUE1 AS SRC_TYPE_STR,
+		       	A.CODE,
+				CASE
+					WHEN A.SRC_TYPE = 'UPS' THEN
+						CASE A.CODE_TYPE
+							WHEN '0' THEN
+								CONCAT(A.DEV_NAME, '[', A.DEV_IP, '] ', IFNULL(A.MEMO, ''))
+							ELSE
+								CONCAT(A.DEV_NAME, '[', A.DEV_IP, '] ', REPLACE(REPLACE(REPLACE(A.EVT_NAME, ' 초과', ''), '미만', ''), ' 이상', ''), CASE A.SRC_IDX WHEN 1 THEN '(L1)' WHEN 2 THEN '(L2)' ELSE '' END, ' [', TRUNCATE(A.REAL_VAL, 1), '/', A.LIMIT_VAL, ']' )
+						END
+					WHEN A.SRC_TYPE IN ('RTU', 'VSVR_VM_00') THEN A.SRC_INFO
+					ELSE CONCAT(A.SRC_INFO, ' ', IFNULL(A.EVT_VALUES, ''))
+				END AS SRC_INFO,
+				CMDEV.DEV_LOCATION,
+				A.EVT_NAME, A.EVT_VALUES,
+				A.EVT_LEVEL,
+				org_evt_level,
+				TIMESTAMPDIFF(SECOND, YMDHMS, CURRENT_TIMESTAMP()) AS SUM_SEC,
+				CMCD3.CODE_VALUE1 AS STATUS,
+		        CASE A.PROGRESS_STATE
+					WHEN 'C' THEN ''
+					ELSE CMCD2.CODE_VALUE1
+				END AS PROGRESS_STATE,
+				A.MNG_NO,
+				A.SRC_IDX, A.SRC_GRP_NO, A.SEQ_NO, A.DEV_IP, A.RECEIPT_MEMO, (SELECT user_name FROM COM_USER WHERE USER_ID = a.RECEIPT_USER ) AS receipt_User
+				, A.ENG_NAME, A.LIMIT_DESC, A.DEV_KIND2, A.DIS_DEV_NAME, A.DEV_NAME, A.IF_NAME, A.IF_ALIAS,
+				CASE A.PROGRESS_STATE
+					WHEN 'A' THEN (SELECT CODE_VALUE1 FROM CM_CODE10 WHERE CODE_KIND = 'EVENT_STATUS' AND CODE_ID = A.PROGRESS_STATE)
+					ELSE CMLV.CODE_VALUE1
+				END AS EVT_LEVEL_STR,
+		        A.EVT_CAUSE,
+				(SELECT	CODE_VALUE1 AS LABEL FROM CM_CODE10 WHERE CODE_KIND = 'EVENT_CAUSE' AND CODE_ID = A.EVT_CAUSE) AS EVT_CAUSE_STR
+   		FROM (
+        		SELECT	A.YMDHMS,
+                		CASE
+							WHEN A.SRC_TYPE = 'SUB' THEN
+								(SELECT GRP_NAME FROM NT_CFG_GROUP WHERE GRP_NO = (SELECT GRP_NO FROM NT_CFG_SUBNET WHERE SUB_NO = A.MNG_NO))
+							WHEN A.SRC_TYPE = 'SVC' THEN
+								(SELECT GRP_NAME FROM NT_CFG_GROUP WHERE GRP_NO = (SELECT GRP_NO FROM TB_COM_SERVICE WHERE SVC_NO = A.SRC_SVR_NO AND MNG_NO = A.MNG_NO ))
+						  	ELSE A.GRP_NAME
+						END AS GRP_NAME,
+						A.SRC_TYPE,
+						A.SRC_INFO,
+						B.EVT_NAME, A.EVT_VALUES, A.EVT_VALUES_SRC,
+						IF(PROGRESS_STATE='A', -1, A.EVT_LEVEL) AS EVT_LEVEL,
+						A.EVT_LEVEL AS org_evt_level,
+						A.SUM_SEC, A.DIS_STATUS AS STATUS, IFNULL(NULLIF(PROGRESS_STATE,''), 'C') AS PROGRESS_STATE,
+						A.MNG_NO, A.SRC_IDX, A.SRC_GRP_NO, A.SEQ_NO, A.DEV_IP,
+						A.RECEIPT_MEMO, a.RECEIPT_USER
+						,A.ENG_NAME,
+               			CASE
+							 WHEN A.SRC_TYPE = 'SVR' AND A.CODE = 'FILE_CHECK_00' THEN substring_index(A.MEMO,' : ',1)
+							 WHEN A.SRC_TYPE IN ('SVR','DEV') AND (A.CODE LIKE '%CLI_%' OR A.CODE LIKE 'FILE_LOG_%') THEN  A.MEMO
+							 WHEN A.SRC_TYPE = 'DEV' AND A.CODE LIKE '%QOS_%' THEN  A.MEMO
+               			    ELSE B.LIMIT_DESC
+               			END LIMIT_DESC,
+               			A.DEV_KIND2,
+						A.DIS_DEV_NAME, A.DEV_NAME, A.IF_NAME, A.IF_ALIAS, A.CODE, A.REAL_VAL, A.LIMIT_VAL, B.CODE_TYPE, A.MEMO, A.EVT_CAUSE
+				FROM	(<include refid="CommonV65.selectRtEvtDetailList"/>) A, (<include refid="CommonV65.getProfileEvtCodeList"/>) B
+				WHERE	A.CODE = B.CODE
+				AND		A.PROFILE_NO = B.PROFILE_NO
+				AND		A.SRC_TYPE NOT IN ('ETC', 'AP', 'RTU', 'SYSLOG', 'TRAP', 'WAS')
+        		AND 	A.CODE NOT LIKE CONCAT('VSVR_VM', '%')
+        		UNION ALL
+				SELECT
+						A.YMDHMS,
+						A.GRP_NAME,
+						A.SRC_TYPE,
+						A.SRC_INFO,
+						B.EVT_NAME, A.EVT_VALUES, A.EVT_VALUES_SRC,
+						IF(PROGRESS_STATE='A', -1, A.EVT_LEVEL) AS EVT_LEVEL,
+						A.EVT_LEVEL AS org_evt_level,
+						A.SUM_SEC, A.DIS_STATUS AS STATUS, IFNULL(NULLIF(PROGRESS_STATE,''), 'C') AS PROGRESS_STATE,
+						C.MNG_NO, A.SRC_IDX, A.SRC_GRP_NO, A.SEQ_NO, IFNULL(A.DEV_IP, C.UUID) AS DEV_IP,
+						A.RECEIPT_MEMO, A.RECEIPT_USER,
+						A.ENG_NAME, B.LIMIT_DESC, A.DEV_KIND2,
+						A.DIS_DEV_NAME, A.DEV_NAME, A.IF_NAME, A.IF_ALIAS, A.CODE, A.REAL_VAL, A.LIMIT_VAL, B.CODE_TYPE, A.MEMO, A.EVT_CAUSE
+				FROM	(<include refid="CommonV65.selectRtEvtDetailList"/>) A, (<include refid="CommonV65.getProfileEvtCodeList"/>) B,
+						ESXI_VIRTUALMACHINE C
+				WHERE	A.CODE = B.CODE
+				AND		A.PROFILE_NO = B.PROFILE_NO
+				AND		A.SRC_MNG_NO = C.MNG_NO
+				AND		A.SRC_TYPE = 'VSVR'
+				AND 	A.CODE LIKE CONCAT('VSVR_VM', '%')
+				UNION ALL
+				SELECT A.YMDHMS,
+						'' AS GRP_NAME,
+						A.SRC_TYPE,
+						A.SRC_INFO,
+						B.EVT_NAME, A.EVT_VALUES, A.EVT_VALUES_SRC,
+						IF(PROGRESS_STATE='A', -1, A.EVT_LEVEL) AS EVT_LEVEL,
+						A.EVT_LEVEL AS org_evt_level,
+						A.SUM_SEC, A.DIS_STATUS AS STATUS, IFNULL(NULLIF(PROGRESS_STATE,''), 'C') AS PROGRESS_STATE,
+						0 AS MNG_NO, A.SRC_IDX, A.SRC_GRP_NO, A.SEQ_NO, C.DEV_IP,
+						A.RECEIPT_MEMO, a.RECEIPT_USER,
+						A.ENG_NAME, B.LIMIT_DESC, A.DEV_KIND2,
+						A.DIS_DEV_NAME, A.DEV_NAME, A.IF_NAME, A.IF_ALIAS, A.CODE, A.REAL_VAL, A.LIMIT_VAL, B.CODE_TYPE, A.MEMO, A.EVT_CAUSE
+				FROM 	(<include refid="CommonV65.selectRtEvtDetailList"/>) A, (<include refid="CommonV65.getProfileEvtCodeList"/>) B, CM_TM_ETC C
+				WHERE 	A.CODE = B.CODE
+				AND		A.PROFILE_NO = B.PROFILE_NO
+				AND 	A.SRC_IP = C.DEV_IP
+				AND 	A.SRC_TYPE = 'ETC'
+				UNION ALL
+				SELECT  A.YMDHMS,
+						A.GRP_NAME,
+						SRC_TYPE,
+						A.SRC_INFO,
+						CASE A.SRC_TYPE
+							WHEN 'SYSLOG' THEN
+								(SELECT A.CAUSE_MEMO FROM TB_NMS_SYSLOG_EVT WHERE EVT_NO = A.SRC_IDX AND USE_FLAG = 1 LIMIT 1)
+							WHEN 'TRAP' THEN
+							    CASE WHEN A.CODE IN ('PTN_00','PTN_01') THEN
+									(SELECT EVT_NM AS EVT_NAME FROM TB_COM_EVTCODE WHERE EVT_CD = A.CODE AND USE_FLAG = 1 LIMIT 1 )
+							    ELSE
+									A.CAUSE_MEMO
+							    END
+						END AS EVT_NAME, A.EVT_VALUES, A.EVT_VALUES_SRC,
+						IF(PROGRESS_STATE='A', -1, A.EVT_LEVEL) AS EVT_LEVEL,
+						A.EVT_LEVEL AS org_evt_level,
+						SUM_SEC, A.DIS_STATUS AS STATUS, IFNULL(NULLIF(PROGRESS_STATE,''), 'C') AS PROGRESS_STATE,
+						A.MNG_NO,
+						CASE WHEN A.SRC_TYPE = 'SUB' THEN A.SRC_SUB_NO
+						ELSE A.SRC_IDX END SRC_IDX, A.SRC_GRP_NO,
+						A.SEQ_NO, A.DEV_IP,
+						RECEIPT_MEMO, a.RECEIPT_USER,
+						A.ENG_NAME,
+                        CASE A.SRC_TYPE
+							WHEN 'SYSLOG' THEN
+								CASE A.CODE
+									WHEN 'SYSLOG_00' THEN A.MEMO
+									ELSE (SELECT A.CAUSE_MEMO FROM TB_NMS_SYSLOG_EVT WHERE EVT_NO = A.SRC_IDX AND USE_FLAG = 1 LIMIT 1)
+								END
+                            WHEN 'TRAP' THEN
+								CASE A.CODE
+								  WHEN 'TRAP_00' THEN  A.MEMO
+								  WHEN 'PTN_00' THEN  (SELECT EVT_NM AS EVT_NAME FROM TB_COM_EVTCODE WHERE EVT_CD = A.CODE AND USE_FLAG = 1 LIMIT 1 )
+								  ELSE  CONCAT(A.CAUSE_MEMO, '_', A.MEMO)
+								END
+                            ELSE MEMO
+                        END AS LIMIT_DESC,
+        				A.DEV_KIND2,
+						A.DIS_DEV_NAME, A.DEV_NAME, A.IF_NAME, A.IF_ALIAS, A.CODE, A.REAL_VAL, A.LIMIT_VAL, '' AS CODE_TYPE, A.MEMO, A.EVT_CAUSE
+				FROM 	(<include refid="CommonV65.selectRtEvtDetailList"/>) A
+				<choose>
+					<when test="_parameter.containsKey('webSiteName') and webSiteName == 'HyundaiCar'">
+						WHERE 	A.SRC_TYPE = 'TRAP'
+					</when>
+					<otherwise>
+						WHERE 	A.SRC_TYPE IN ('SYSLOG', 'TRAP')
+					</otherwise>
+				</choose>
+				UNION ALL
+				SELECT A.YMDHMS,
+						A.GRP_NAME,
+						A.SRC_TYPE,
+						CONCAT(
+						IF (	ISNULL(C.USER_DEV_NAME)	OR C.USER_DEV_NAME = '', C.DEV_NAME, C.USER_DEV_NAME ),
+						'[',
+						C.DEV_IP,
+						']',
+						' ',
+						D.SENSOR_NAME,
+						' ',
+						E.CODE_NAME,
+						' ',
+						IFNULL( A.MEMO,	'' ),
+				       	CASE B.CODE_TYPE WHEN 1 THEN CONCAT(' [', A.REAL_VAL ,']') ELSE '' END
+						) AS SRC_INFO,
+						( SELECT EVT_NM AS EVT_NAME FROM TB_COM_EVTCODE
+							WHERE SYSTEM_CD IN ('DEV', 'FMS') <!-- 추후  SYSTEM_CD를 'FMS'로 변경 필요함 * RTU 장애 * -->
+							AND EVT_CD = A.CODE AND PROFILE_NO = C.PROFILE_NO ) AS EVT_NAME,
+						A.EVT_VALUES, A.EVT_VALUES_SRC,
+						IF(PROGRESS_STATE='A', -1, A.EVT_LEVEL) AS EVT_LEVEL,
+						A.EVT_LEVEL AS org_evt_level,
+						SUM_SEC, A.DIS_STATUS AS STATUS, IFNULL(NULLIF(PROGRESS_STATE,''), 'C') AS PROGRESS_STATE,
+						A.MNG_NO, SRC_IDX, SRC_GRP_NO, SEQ_NO, C.DEV_IP,
+						RECEIPT_MEMO, a.RECEIPT_USER,
+						A.ENG_NAME,
+						B.LIMIT_DESC, A.DEV_KIND2,
+						A.DIS_DEV_NAME, A.DEV_NAME, A.IF_NAME, A.IF_ALIAS, A.CODE, A.REAL_VAL, A.LIMIT_VAL, B.CODE_TYPE, A.MEMO, A.EVT_CAUSE
+				FROM 	(<include refid="CommonV65.selectRtEvtDetailList"/>) A, (<include refid="CommonV65.getProfileEvtCodeList"/>) B, CM_DEV10 C, CM_FMS_SENSOR D, CM_FMS_CODE E
+				WHERE 	A.CODE = B.CODE
+				AND		A.PROFILE_NO = B.PROFILE_NO
+				AND 	A.SRC_MNG_NO = C.MNG_NO
+				AND		A.SRC_MNG_NO = D.MNG_NO
+				AND		A.SRC_IDX = D.FMS_SEQ_NO
+				AND     D.SENSOR_KIND = E.CODE_ID
+				AND 	A.SRC_TYPE = 'RTU'
+				UNION ALL
+				SELECT A.YMDHMS,
+						(SELECT GRP_NAME FROM NT_CFG_GROUP WHERE GRP_NO = (SELECT GRP_NO FROM CM_DEV10 WHERE MNG_NO = A.SRC_MNG_NO)) AS GRP_NAME,
+						A.SRC_TYPE,
+						CONCAT(C.WAS_NM, '[', (SELECT DEV_IP FROM CM_DEV10 WHERE MNG_NO = A.SRC_MNG_NO), ':', C.CONN_PORT , ']') AS SRC_INFO,
+						B.EVT_NAME, A.EVT_VALUES, A.EVT_VALUES_SRC,
+						IF(PROGRESS_STATE='A', -1, A.EVT_LEVEL) AS EVT_LEVEL,
+						A.EVT_LEVEL AS org_evt_level,
+						A.SUM_SEC, A.DIS_STATUS AS STATUS, IFNULL(NULLIF(PROGRESS_STATE,''), 'C') AS PROGRESS_STATE,
+						C.MNG_NO, SRC_IDX, A.SRC_GRP_NO, A.SEQ_NO, DEV_IP,
+						A.RECEIPT_MEMO, a.RECEIPT_USER,
+						A.ENG_NAME, B.LIMIT_DESC, A.DEV_KIND2,
+						A.DIS_DEV_NAME, A.DEV_NAME, A.IF_NAME, A.IF_ALIAS, A.CODE, A.REAL_VAL, A.LIMIT_VAL, B.CODE_TYPE, A.MEMO, A.EVT_CAUSE
+				FROM	(<include refid="CommonV65.selectRtEvtDetailList"/>) A, (<include refid="CommonV65.getProfileEvtCodeList"/>) B, NT_SVR_WAS C
+				WHERE	A.CODE = B.CODE
+				AND		A.PROFILE_NO = B.PROFILE_NO
+				AND		A.SRC_MNG_NO = C.MNG_NO
+				AND		A.SRC_IDX = C.WAS_NO
+				AND		A.SRC_TYPE = 'WAS'
+			) A , CM_DEV10 CMDEV, CM_CODE10 CMCD, CM_CODE10 CMCD2, CM_CODE10 CMCD3,
+             (SELECT * FROM CM_CODE10 WHERE CODE_KIND = 'WEB_CONF' AND CODE_ID LIKE 'EVT_LEVEL%') AS CMLV
+		WHERE A.MNG_NO = CMDEV.MNG_NO
+		  AND A.SRC_TYPE = CMCD.CODE_ID
+		  AND CMCD.CODE_KIND = 'SRC_TYPE'
+		  AND A.EVT_LEVEL = CMLV.CODE_VALUE3
+		  AND IFNULL(A.PROGRESS_STATE, 'C') = CMCD2.CODE_ID
+		  AND CMCD2.CODE_KIND = 'EVENT_STATUS'
+          AND A.STATUS = CMCD3.CODE_ID
+		  AND CMCD3.CODE_KIND = 'EVENT_STATUS'
+		<if test="_parameter.containsKey('srcType') and srcType != 'ALL'">
+			<choose>
+				<when test="srcType == 'DEV'">
+					AND A.SRC_TYPE IN ('DEV', 'IF')
+				</when>
+				<otherwise>
+					AND A.SRC_TYPE = #{srcType}
+				</otherwise>
+			</choose>
+		</if>
+		<if test="_parameter.containsKey('ifIdx') and ifIdx != -1" >
+			AND A.SRC_IDX = #{ifIdx}
+		</if>
+		ORDER BY YMDHMS DESC
+    </select>
+
+    <select id="selectD3TopoGrpTreeList" resultType="CamelHashMap">
+     SELECT
+            GRP_PARENT              AS PARENT_NAME,
+            CAST( GRP_NO AS CHAR )  AS VALUE,
+            0                       AS ISLEAF,
+            0                       AS GRP_REF,
+            GRP_NAME                AS LABEL,
+            'GROUP'                 AS DEV_KIND2
+        FROM
+            CM_TOPO_GROUP
+        WHERE
+            USER_ID = (
+            SELECT
+                CASE
+                    ISSHARE
+                    WHEN 1 THEN IF( ISNULL( PARENT_ID ),
+                    '',
+                    PARENT_ID )
+                    ELSE USER_ID
+                END AS USER_ID
+            FROM
+                COM_USER
+            WHERE
+                USER_ID = 'admin' )
+        ORDER BY
+            GRP_PARENT,
+            GRP_NAME
+    </select>
+
+    <select id="selectGrpTreeList" resultType="CamelHashMap">
+        SELECT
+            GRP_PARENT              AS PARENT_NAME,
+            CAST( GRP_NO AS CHAR )  AS VALUE,
+            0                       AS ISLEAF,
+            0                       AS GRP_REF,
+            GRP_NAME                AS LABEL,
+            'GROUP'                 AS DEV_KIND2
+        FROM
+            NT_CFG_GROUP
+        ORDER BY GRP_NO
+    </select>
+</mapper>

@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dash.setting.persistence.DashSettingMapper">
+
+    <select id="selectImgList" resultType="CamelHashMap">
+        SELECT
+            IMG_NO,
+            IMG_NAME,
+            IMG_UID,
+            IMG_KIND1,
+            IMG_KIND2,
+            IMG_KIND3,
+            S_CONF,
+            SORT_IDX,
+            IS_DISPLAY
+        FROM	COM_IMG
+        WHERE	IMG_KIND1 = 'DASH'
+        AND 	IMG_KIND2 = #{imgKind2}
+        <if test="_parameter.containsKey('isDisplay')">
+            AND IS_DISPLAY = #{isDisplay}
+        </if>
+        ORDER BY SORT_IDX, IMG_NAME
+    </select>
+
+    <select id="selectImgInfo" resultType="CamelHashMap">
+        SELECT
+            IMG_NO,
+            IMG_NAME,
+            IMG_UID,
+            IMG_KIND1,
+            IMG_KIND2,
+            IMG_KIND3,
+            S_CONF,
+            SORT_IDX,
+            IS_DISPLAY
+        FROM	COM_IMG
+        WHERE	IMG_KIND1 = 'DASH'
+        AND 	IMG_KIND2 = #{imgKind2}
+        AND     IMG_NO = #{imgNo}
+        ORDER BY SORT_IDX, IMG_NAME
+    </select>
+
+    <insert id="insertImg">
+        <selectKey keyProperty="imgNo" resultType="long" order="BEFORE">
+            SELECT IFNULL(MAX(IMG_NO), 0) + 1 FROM COM_IMG
+        </selectKey>
+        INSERT INTO COM_IMG (
+        IMG_NO, IMG_NAME, IMG_UID, IMG, IMG_KIND1, IMG_KIND2, S_CONF
+        )
+        VALUES (
+        #{imgNo}, #{imgName}, #{imgUid}, #{img}, 'DASH', #{imgKind2}, 1
+        )
+    </insert>
+
+    <delete id="deleteImg">
+        DELETE FROM COM_IMG
+        WHERE 	IMG_KIND1 = 'DASH'
+        AND 	IMG_KIND2 = #{imgKind2}
+        AND 	IMG_NO IN (<foreach collection="imgList" item="item" separator=",">#{item.imgNo}</foreach>)
+    </delete>
+
+    <insert id="insertTab">
+        <foreach collection="delTabList" item="item">
+            DELETE FROM widget_dash_resize WHERE tab_seq = #{item.tabSeq};
+            DELETE FROM widget_dash_tab WHERE tab_seq = #{item.tabSeq};
+        </foreach>
+        <foreach collection="tabList" item="tabItem" index="index">
+            INSERT INTO widget_dash_tab (tab_seq, tab_idx, tab_name, reg_user_name)
+            VALUES (#{tabItem.tabSeq}, #{tabItem.boundindex}, #{tabItem.tabName}, 'admin')
+            ON DUPLICATE KEY
+            UPDATE
+                tab_idx = #{tabItem.boundindex},
+                tab_name = #{tabItem.tabName},
+                use_flag = #{tabItem.useFlag}
+            ;
+        </foreach>
+    </insert>
+
+    <!-- tab 로테이션 사용여부 -->
+    <update id="updateTabRotation">
+        INSERT INTO cm_dash_conf(user_id, dash_grp_key, dash_key, value)
+        VALUES(#{userId}, 'DASH_MAIN', 'TAB_ROTATION', #{tabRotation})
+        ON DUPLICATE KEY
+        UPDATE value = #{tabRotation}
+    </update>
+
+    <select id="selectTabList" resultType="CamelHashMap">
+        SELECT
+          tab_seq,
+          tab_idx,
+          tab_name,
+          reg_user_name,
+          use_flag
+        FROM widget_dash_tab
+        ORDER BY tab_idx
+    </select>
+
+    <!--
+        tab 신규 생성된 탭에 대한 위젯 재구성
+        1. tab 테이블에 존재 하지 않는 위젯 제거 (ex.3tab 까지 생성 후 2tab으로 수정 했을 경우)
+        2. 임시 테이블 초기화
+        3. 현재 위젯 구성 데이터 임시 테이블에 복사
+        4. 변경 된 탭 번호에 알맞게 위젯 데이터 변경 (ex. 기존 3tab에 1,2,3 위젯이 1tab으로 이동 되었을 경우)
+        5. 신규 생성된 tab이 존재 할 경우 해당 tab에 기초 위젯 데이터 생성(logo,title,timeset)
+    -->
+    <insert id="insertRemakeWidget">
+        DELETE FROM widget_dash_resize
+        WHERE tab_idx NOT IN (SELECT tab_idx FROM widget_dash_tab);
+
+        DELETE FROM widget_dash_resize_tmp;
+
+        <foreach collection="list" item="tabItem" index="index">
+          INSERT INTO widget_dash_resize_tmp
+            SELECT
+              *
+            FROM widget_dash_resize
+            WHERE tab_idx = #{tabItem.tabOriIdx};
+        </foreach>
+
+        <foreach collection="list" item="tabItem" index="index">
+          UPDATE  widget_dash_resize a
+           INNER JOIN widget_dash_resize_tmp b on a.seq_no = b.seq_no  set
+              a.tab_idx = #{tabItem.tabIdx}
+          WHERE b.tab_idx = #{tabItem.tabOriIdx};
+        </foreach>
+
+        INSERT INTO widget_dash_resize
+        (
+          x,
+          y,
+          width,
+          height,
+          id,
+          `name`,
+          display,
+          conf,
+          `type`,
+          tab_idx
+          )
+        SELECT
+          widget.x,
+          widget.y,
+          widget.width,
+          widget.height,
+          widget.id,
+          widget.`name`,
+          widget.display,
+          widget.conf,
+          widget.`type`,
+          tab.tab_idx
+        FROM
+          widget_dash_tab tab
+        JOIN (
+            SELECT * FROM widget_dash_resize
+            WHERE tab_idx = 1 AND TYPE IN ('LOGO', 'TITLE', 'TIMESET')
+        )widget
+        WHERE NOT EXISTS (
+            SELECT * FROM widget_dash_resize newWidget
+            WHERE tab.tab_idx = newWidget.tab_idx
+        )
+        ORDER BY tab.tab_idx;
+    </insert>
+</mapper>

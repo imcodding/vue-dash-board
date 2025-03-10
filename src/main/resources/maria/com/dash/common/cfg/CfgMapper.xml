@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dash.common.cfg.persistence.CfgMapper">
+
+    <select id="selectGrid" resultType="CamelHashMap">
+        SELECT
+            replace(req_url, '/dash/', '') AS seq,
+            col_datafield,
+            col_text,
+            col_disp_flag,
+            col_sort_idx
+        FROM cm_cfg_page_view_grid
+        WHERE req_url = #{reqUrl}
+        AND grid_id = #{gridId}
+        ORDER BY col_sort_idx
+    </select>
+
+    <insert id="updateGrid">
+        DELETE FROM cm_cfg_page_view_grid WHERE req_url = #{reqUrl} AND grid_id = #{gridId};
+        <foreach collection="list" item="item">
+            INSERT INTO cm_cfg_page_view_grid
+            (req_url, grid_id, col_datafield, col_text, col_disp_flag, col_sort_idx)
+            VALUES(#{reqUrl}, #{gridId}, #{item.colDatafield}, #{item.colText}, #{item.colDispFlag}, #{item.visibleindex});
+        </foreach>
+    </insert>
+
+    <delete id="deleteGrid">
+
+    </delete>
+</mapper>

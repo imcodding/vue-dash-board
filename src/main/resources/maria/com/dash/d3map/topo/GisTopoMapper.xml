@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dash.d3map.topo.persistence.GisTopoMapper">
+    
+    <!-- GIS 그룹 조회 -->
+    <select id="selectGroupInfo" resultType="CamelHashMap">
+        SELECT  GRP_NO,
+                GRP_NAME,
+                GIS_ZOOM,
+                GIS_LAT,
+                GIS_LNT,
+                VIEW_TYPE
+        FROM    CM_TOPO_GROUP
+        WHERE   USER_ID = <include refid="Common.selectMapUserId" />
+        AND     GRP_NO = #{grpNo}
+    </select>
+    
+    <!--
+        GIS 아이템 목록 조회
+    -->
+    <select id="selectGisItemList" resultType="CamelHashMap">
+        SELECT
+            A.UNIQ_ID, B.GRP_NAME AS ITEM_NAME,
+            IFNULL(A.XPOINT, 950) AS
+            XPOINT, IFNULL(A.YPOINT, 650) AS YPOINT,
+            A.ITEM_NO, A.GRP_NO, A.MNG_NO,
+            A.DEV_KIND1, A.DEV_KIND2, A.USR_KIND,
+            IFNULL(A.ITEM_SIZE, 3) AS
+            ITEM_SIZE, B.GRP_NAME AS DEV_IP,
+            A.ITEM_ALIAS,
+            IFNULL(A.FONT_SIZE, 2) AS
+            FONT_SIZE, IFNULL(A.EVT_LEVEL, 0) AS EVT_LEVEL,
+            0 AS ENG_NO,
+            A.EVT_TYPE,
+            0 AS CHILD_CNT,
+            A.TEMP1, A.TEMP2, A.TEMP3,
+            A.USER_CONTENT,
+            'NONE' HA_STATUS,
+            A.SHOW_LABEL,
+            B.GIS_LAT AS LAT,
+            B.GIS_LNT AS LNT
+        FROM
+          CM_TOPO_ITEM A, CM_TOPO_GROUP B
+        WHERE 	A.GRP_NO = B.GRP_PARENT
+        AND 	A.MNG_NO = B.GRP_NO
+        AND		A.DEV_KIND1 = 'GRP'
+        AND 	A.USER_ID = B.USER_ID
+        AND 	A.USER_ID = <include refid="Common.selectMapUserId" />
+        AND     A.GRP_NO = #{grpNo}
+        <choose>
+            <when test="_parameter.containsKey('unsetLatLnt') and unsetLatLnt == 1">
+                AND (B.GIS_LAT IS NULL OR B.GIS_LNT IS NULL)
+            </when>
+            <otherwise>
+                AND (B.GIS_LAT IS NOT NULL AND B.GIS_LNT IS NOT NULL)
+            </otherwise>
+        </choose>
+        UNION ALL
+        SELECT
+            A.UNIQ_ID,
+            IFNULL(IFNULL(NULLIF(B.USER_DEV_NAME,''), NULLIF(B.DEV_NAME, '')), B.DEV_IP) AS ITEM_NAME,
+            IFNULL(A.XPOINT, 950) AS XPOINT, IFNULL(A.YPOINT, 650) AS YPOINT,
+            A.ITEM_NO, A.GRP_NO, B.MNG_NO, B.DEV_KIND1, B.DEV_KIND2,
+            A.USR_KIND,
+            IFNULL(A.ITEM_SIZE, 3) AS ITEM_SIZE, IFNULL(B.DEV_IP, B.DEV_NAME)
+            AS DEV_IP, A.ITEM_ALIAS,
+            IFNULL(A.FONT_SIZE, 2) AS
+            FONT_SIZE, IFNULL(A.EVT_LEVEL, 0) AS EVT_LEVEL,
+            0 AS ENG_NO, A.EVT_TYPE,
+            0 AS CHILD_CNT,
+            A.TEMP1, A.TEMP2, A.TEMP3,
+            A.USER_CONTENT,
+            CASE
+                WHEN A.BACK_MNG_NO != -1 THEN 'Standby'
+                WHEN B.BACK_MNG_NO != -1 THEN 'Active'
+                ELSE 'NONE'
+            END AS HA_STATUS,
+            A.SHOW_LABEL,
+            B.LAT,
+            B.LNT
+        FROM
+          CM_TOPO_ITEM A, CM_DEV10 B
+        WHERE 	A.MNG_NO = B.MNG_NO
+        AND 	A.DEV_KIND1 IN ('DEV', 'SVR')
+        AND 	A.GRP_NO = #{grpNo}
+        AND 	A.USER_ID = <include refid="Common.selectMapUserId" />
+        <choose>
+            <when test="_parameter.containsKey('unsetLatLnt') and unsetLatLnt == 1">
+                AND (B.LAT IS NULL OR B.LNT IS NULL)
+            </when>
+            <otherwise>
+                AND (B.LAT IS NOT NULL AND B.LNT IS NOT NULL)
+            </otherwise>
+        </choose>
+        UNION ALL
+        SELECT
+            A.UNIQ_ID, IFNULL(NULLIF(B.AP_NAME, ''), A.ITEM_ALIAS) AS ITEM_NAME,
+            IFNULL(A.XPOINT, 950) AS XPOINT, IFNULL(A.YPOINT, 650) AS YPOINT,
+            A.ITEM_NO, A.GRP_NO, A.MNG_NO, A.DEV_KIND1, A.DEV_KIND2, A.USR_KIND,
+            IFNULL(A.ITEM_SIZE, 3) AS ITEM_SIZE, IFNULL(B.AP_MAC, B.AP_IP) AS
+            DEV_IP, IFNULL(A.ITEM_ALIAS, B.AP_NAME) AS ITEM_ALIAS,
+            IFNULL(A.FONT_SIZE, 2) AS FONT_SIZE, IFNULL(A.EVT_LEVEL, 0) AS EVT_LEVEL,
+            0 AS ENG_NO, A.EVT_TYPE,
+            IFNULL((
+                    SELECT SUM(NUM_CONN)
+                    FROM
+                    CM_DEV_AP_PERF_LAST
+                    WHERE AP_NO = B.AP_NO
+                    AND LAST_UPD <![CDATA[ >= ]]> DATE_SUB(CURRENT_TIMESTAMP(), INTERVAL 15 MINUTE)
+                    ), 0) AS CHILD_CNT,
+            A.TEMP1, A.TEMP2, A.TEMP3,
+            A.USER_CONTENT,
+            'NONE' HA_STATUS,
+            A.SHOW_LABEL,
+            B.LAT,
+            B.LNT
+        FROM
+          CM_TOPO_ITEM A, CM_DEV_AP B
+        WHERE	A.MNG_NO = B.AP_NO
+        AND 	A.DEV_KIND1 IN ('AP_CONTROLLER', 'AP_ALONE')
+        AND 	A.GRP_NO = #{grpNo}
+        AND 	A.USER_ID = <include refid="Common.selectMapUserId" />
+        <choose>
+            <when test="_parameter.containsKey('unsetLatLnt') and unsetLatLnt == 1">
+                AND (B.LAT IS NULL OR B.LNT IS NULL)
+            </when>
+            <otherwise>
+                AND (B.LAT IS NOT NULL AND B.LNT IS NOT NULL)
+            </otherwise>
+        </choose>
+    </select>
+    
+    <!--
+        GIS 위경도 정보 저장 (원장테이블에 위경도 업데이트)
+            DEV_KIND1 IN ('GRP') -> CM_TOPO_GROUP
+            DEV_KIND1 IN ('DEV','SVR') -> CM_DEV10
+            DEV_KIND1 IN ('AP_CONTROLLER') -> CM_DEV_AP
+    -->
+    <update id="updateItemLatLnt">
+        <foreach collection="list" item="item">
+            <choose>
+                <when test='item.devKind1.equals("GRP")'>
+                    UPDATE  CM_TOPO_GROUP
+                    SET     GIS_LAT = #{item.lat},
+                            GIS_LNT = #{item.lnt}
+                    WHERE   USER_ID = <include refid="Common.selectMapUserId"/>
+                    AND     GRP_NO = #{item.mngNo};
+                </when>
+                <when test='item.devKind1.equals("DEV") or item.devKind1.equals("SVR")'>
+                    UPDATE  CM_DEV10
+                    SET     LAT = #{item.lat},
+                            LNT = #{item.lnt}
+                    WHERE   MNG_NO = #{item.mngNo};
+                </when>
+                <when test='item.devKind1.equals("AP_CONTROLLER")'>
+                    UPDATE  CM_DEV_AP
+                    SET     LAT = #{item.lat},
+                            LNT = #{item.lnt}
+                    WHERE   AP_NO = #{item.mngNo};
+                </when>
+            </choose>
+        </foreach>
+    </update>
+
+    <!-- 토폴로지 그룹에 대한 GIS 정보 저장 -->
+    <update id="updateGroupLatLng">
+        UPDATE  CM_TOPO_GROUP
+        SET     GIS_ZOOM = #{zoom},
+                GIS_LAT = #{lat},
+                GIS_LNT = #{lnt}
+        WHERE   USER_ID = <include refid="Common.selectMapUserId"/>
+        AND     GRP_NO = #{grpNo}
+    </update>
+    
+</mapper>

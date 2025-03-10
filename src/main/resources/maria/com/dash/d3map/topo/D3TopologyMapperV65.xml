@@ -1,0 +1,1031 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dash.d3map.topo.persistence.D3TopologyMapperV65">
+
+    <resultMap type="com.dash.d3map.topo.dto.TopoLinkDto" id="resultTopoLink">
+        <result property="linkNo" 					column="LINK_NO"/>
+        <result property="mngNo1"					column="MNG_NO1"/>
+        <result property="mngNo2"					column="MNG_NO2"/>
+        <result property="ifIdx1"						column="IF_IDX1"/>
+        <result property="ifIdx2"						column="IF_IDX2"/>
+        <result property="itemNo1"					column="ITEM_NO1"/>
+        <result property="itemNo2"					column="ITEM_NO2"/>
+        <result property="evtLevel1"					column="EVT_LEVEL1"/>
+        <result property="evtLevel2"					column="EVT_LEVEL2"/>
+        <result property="lineWidth1"				column="LINE_WIDTH1"/>
+        <result property="lineWidth2"				column="LINE_WIDTH2"/>
+        <result property="linkName1"				column="LINK_NAME1"/>
+        <result property="linkName2"				column="LINK_NAME2"/>
+        <result property="linkIdx1"					column="LINK_IDX1"/>
+        <result property="linkIdx2"					column="LINK_IDX2"/>
+        <result property="trafficType1"				column="TRAFFIC_TYPE1"/>
+        <result property="trafficType2"				column="TRAFFIC_TYPE2"/>
+        <result property="traffic1"						column="TRAFFIC1"/>
+        <result property="traffic2"						column="TRAFFIC2"/>
+        <result property="traffic1In"					column="TRAFFIC1_IN"/>
+        <result property="traffic1Out"					column="TRAFFIC1_OUT"/>
+        <result property="traffic2In"					column="TRAFFIC2_IN"/>
+        <result property="traffic2Out"					column="TRAFFIC2_OUT"/>
+        <result property="point1"						column="POINT1"/>
+        <result property="point2"						column="POINT2"/>
+        <result property="point3"						column="POINT3"/>
+        <result property="isMain"						column="IS_MAIN"/>
+        <result property="isMulti"						column="IS_MULTI"/>
+        <result property="lineSize"					column="LINE_SIZE"/>
+        <result property="lineType"                 column="LINE_TYPE" />
+        <result property="gcNo"						column="GC_NO"/>
+        <result property="shEvt"						column="SH_EVT"/>
+        <result property="linePointUD1"				column="LINE_POINT_UD1"/>
+        <result property="linePointUD2"				column="LINE_POINT_UD2"/>
+        <result property="linePointLR1"				column="LINE_POINT_LR1"/>
+        <result property="linePointLR2"				column="LINE_POINT_LR2"/>
+        <result property="curveX1"                  column="CURVE_X1"/>
+        <result property="curveY1"                  column="CURVE_Y1"/>
+        <result property="curveX2"                  column="CURVE_X2"/>
+        <result property="curveY2"                  column="CURVE_Y2"/>
+        <result property="lineStyle"                column="LINE_STYLE"/>
+        <result property="lineColor"                column="LINE_COLOR"/>
+        <result property="pollingColor"             column="POLLING_COLOR"/>
+    </resultMap>
+
+    <!-- 환결설정 조회 -->
+    <select id="selectTopoEnvSetting" resultType="CamelHashMap">
+        SELECT
+            SHOW_LABEL,
+            LINE_COLOR,
+            POLLING_COLOR,
+            FONT_COLOR,
+            FONT_BG_COLOR,
+            ALARM_CHK,
+            ALARM_LV1_CHK,
+            ALARM_LV2_CHK,
+            ALARM_LV3_CHK,
+            ALARM_LV4_CHK,
+            ALARM_LV5_CHK,
+            ALARM_LV1_PATH,
+            ALARM_LV2_PATH,
+            ALARM_LV3_PATH,
+            ALARM_LV4_PATH,
+            ALARM_LV5_PATH,
+            JSON_CONF,
+            SHOW_ICMP_POLL,
+            SHOW_AP_EVENT,
+            DIGITCLOCK_CONF,
+            SLIDE_GRP_CONF,
+            HELPLINE_CONF
+        FROM	CM_TOPO_USER
+        WHERE	USER_ID = <include refid="CommonV65.selectMapUserId" />
+    </select>
+
+    <sql id="sqlTopoItemListWithoutGroup">
+        SELECT
+            A.UNIQ_ID,
+            IFNULL(IFNULL(NULLIF(B.USER_DEV_NAME,''), NULLIF(B.DEV_NAME, '')), B.DEV_IP) AS ITEM_NAME,
+            A.DEV_PERF,
+            IFNULL(A.XPOINT, 950) AS XPOINT,
+            IFNULL(A.YPOINT, 650) AS YPOINT,
+            A.ITEM_NO, A.GRP_NO, B.MNG_NO, B.DEV_KIND1, B.DEV_KIND2,
+            A.USR_KIND,
+            IFNULL(A.ITEM_SIZE, 3) AS ITEM_SIZE, IFNULL(B.DEV_IP, B.DEV_NAME)
+            AS DEV_IP, A.ITEM_ALIAS,
+            IFNULL(A.FONT_SIZE, 0) AS
+            FONT_SIZE, IFNULL(IF(A.EVT_LEVEL = -2, 0, A.EVT_LEVEL), 0) AS EVT_LEVEL,
+            0 AS ENG_NO, A.EVT_TYPE,
+            0 AS CHILD_CNT,
+            A.TEMP1, A.TEMP2, A.TEMP3,
+            A.USER_CONTENT,
+            A.SHOW_LABEL,
+            NULL AS DYN_INFO,
+            B.DEV_LOCATION AS LOCATION,
+            B.ICMP_POLL,
+            A.ITEM_CONF
+        FROM
+            CM_TOPO_ITEM A, CM_DEV10 B
+        WHERE 	A.MNG_NO = B.MNG_NO
+        AND 	A.DEV_KIND1 IN ('DEV', 'SVR')
+        AND 	A.GRP_NO = #{grpNo}
+        AND 	A.USER_ID =  <include refid="CommonV65.selectMapUserId" />
+        UNION ALL
+        SELECT
+            A.UNIQ_ID, IFNULL(NULLIF(B.SUB_NAME,''), B.IP) AS ITEM_NAME, A.DEV_PERF,
+            IFNULL(A.XPOINT, 950) AS XPOINT, IFNULL(A.YPOINT, 650) AS YPOINT,
+            A.ITEM_NO, A.GRP_NO, A.MNG_NO, A.DEV_KIND1, A.DEV_KIND2,
+            A.USR_KIND,
+            IFNULL(A.ITEM_SIZE, 3) AS ITEM_SIZE, IFNULL(NULLIF(B.IP, ''), B.SUB_NAME) AS DEV_IP, A.ITEM_ALIAS,
+            IFNULL(A.FONT_SIZE, 0) AS FONT_SIZE,IFNULL(IF(A.EVT_LEVEL = -2, 0, A.EVT_LEVEL), 0) AS EVT_LEVEL,
+            0 AS ENG_NO,
+            A.EVT_TYPE,
+            0 AS CHILD_CNT,
+            A.TEMP1, A.TEMP2, A.TEMP3,
+            A.USER_CONTENT,
+            A.SHOW_LABEL,
+            NULL AS DYN_INFO,
+            '' AS LOCATION,
+            '' AS ICMP_POLL,
+            A.ITEM_CONF
+        FROM
+            CM_TOPO_ITEM A, NT_CFG_SUBNET B
+        WHERE 	A.MNG_NO = B.SUB_NO
+        AND 	A.DEV_KIND1 = 'SUB'
+        AND 	A.GRP_NO = #{grpNo}
+        AND 	A.USER_ID = <include refid="CommonV65.selectMapUserId" />
+        UNION ALL
+        SELECT
+            A.UNIQ_ID,
+            IFNULL(NULLIF(B.DEV_NAME, ''), A.ITEM_ALIAS) AS ITEM_NAME, A.DEV_PERF,
+            IFNULL(A.XPOINT, 950) AS XPOINT, IFNULL(A.YPOINT, 650) AS
+            YPOINT,
+            A.ITEM_NO, A.GRP_NO, A.MNG_NO, A.DEV_KIND1, A.DEV_KIND2,
+            A.USR_KIND,
+            IFNULL(A.ITEM_SIZE, 0) AS ITEM_SIZE,
+            IFNULL(
+            NULLIF(B.DEV_IP, ''),
+            B.URL
+            ) AS DEV_IP,
+            A.ITEM_ALIAS,
+            IFNULL(A.FONT_SIZE, 0) AS FONT_SIZE,
+            IFNULL(IF(A.EVT_LEVEL = -2, 0, A.EVT_LEVEL), 4) AS EVT_LEVEL,
+            0 AS ENG_NO, A.EVT_TYPE,
+            0 AS CHILD_CNT,
+            A.TEMP1, A.TEMP2, A.TEMP3,
+            A.USER_CONTENT,
+            A.SHOW_LABEL,
+            NULL AS DYN_INFO,
+            '' AS LOCATION,
+            '' AS ICMP_POLL,
+            A.ITEM_CONF
+        FROM
+            CM_TOPO_ITEM A LEFT OUTER JOIN CM_TOPO_ETC B
+            ON (A.ITEM_NO = B.ITEM_NO AND A.USER_ID = B.USER_ID)
+        WHERE 	A.DEV_KIND1 = 'ETC'
+        AND 	A.GRP_NO = #{grpNo}
+        AND		A.USER_ID = <include refid="CommonV65.selectMapUserId" />
+        UNION ALL
+        SELECT
+            A.UNIQ_ID, IFNULL(NULLIF(B.RACK_NAME, ''), A.ITEM_ALIAS) AS ITEM_NAME, A.DEV_PERF,
+            IFNULL(A.XPOINT, 950) AS XPOINT, IFNULL(A.YPOINT, 650) AS YPOINT,
+            A.ITEM_NO, A.GRP_NO, A.MNG_NO, A.DEV_KIND1, A.DEV_KIND2,
+            A.USR_KIND,
+            IFNULL(A.ITEM_SIZE, 3) AS ITEM_SIZE, CAST(B.RACK_U AS CHAR(10)) AS DEV_IP,
+            IFNULL(A.ITEM_ALIAS, B.RACK_NAME) AS ITEM_ALIAS,
+            IFNULL(A.FONT_SIZE, 0) AS FONT_SIZE, IFNULL(IF(A.EVT_LEVEL = -2, 0, A.EVT_LEVEL), 0) AS EVT_LEVEL,
+            0 AS ENG_NO, A.EVT_TYPE,
+            0 AS CHILD_CNT,
+            A.TEMP1, A.TEMP2, A.TEMP3,
+            A.USER_CONTENT,
+            A.SHOW_LABEL,
+            NULL AS DYN_INFO,
+            '' AS LOCATION,
+            '' AS ICMP_POLL,
+            A.ITEM_CONF
+        FROM
+            CM_TOPO_ITEM A, S_CM_RACK B
+        WHERE 	A.MNG_NO = B.RACK_NO
+        AND		A.DEV_KIND1 = 'RACK'
+        AND 	A.GRP_NO = #{grpNo}
+        AND 	A.USER_ID = <include refid="CommonV65.selectMapUserId" />
+        UNION ALL
+        SELECT
+            A.UNIQ_ID,
+            CASE
+            WHEN B.SENSOR_NAME IS NOT NULL AND B.USR_NAME IS NOT NULL THEN CONCAT(B.SENSOR_NAME, '-', B.USR_NAME)
+            WHEN B.SENSOR_NAME IS NOT NULL THEN B.SENSOR_NAME
+            WHEN B.USR_NAME IS NOT NULL THEN B.USR_NAME
+            END ITEM_NAME,
+            <!--IFNULL(NULLIF(B.SENSOR_NAME, ''), B.USR_NAME) AS ITEM_NAME, -->
+            A.DEV_PERF,
+            IFNULL(A.XPOINT, 950) AS XPOINT, IFNULL(A.YPOINT, 650) AS YPOINT,
+            A.ITEM_NO, A.GRP_NO, A.MNG_NO, A.DEV_KIND1, A.DEV_KIND2,
+            A.USR_KIND, IFNULL(A.ITEM_SIZE, 3) AS ITEM_SIZE,
+            CASE
+            WHEN (SELECT DEV_IP FROM CM_DEV10 WHERE DEV_KIND2 = 'RTU' AND MNG_NO = B.MNG_NO) IS NULL THEN
+            B.SENSOR_NAME
+            ELSE
+            (SELECT DEV_IP FROM CM_DEV10 WHERE DEV_KIND2 = 'RTU' AND MNG_NO = B.MNG_NO)
+            END	AS DEV_IP,
+            IFNULL(NULLIF(A.ITEM_ALIAS, ''),
+            CASE
+            WHEN B.SENSOR_NAME IS NOT NULL
+            AND B.USR_NAME IS NOT NULL THEN CONCAT(B.SENSOR_NAME, '-', B.USR_NAME)
+            WHEN B.SENSOR_NAME IS NOT NULL THEN B.SENSOR_NAME
+            WHEN B.USR_NAME IS NOT NULL THEN B.USR_NAME
+            END
+            ) AS ITEM_ALIAS,
+            IFNULL(A.FONT_SIZE, 0) AS FONT_SIZE, IFNULL(IF(A.EVT_LEVEL = -2, 0, A.EVT_LEVEL), 0) AS EVT_LEVEL,
+            0 AS ENG_NO, A.EVT_TYPE,
+            0 AS CHILD_CNT,
+            A.TEMP1, CAST(B.SENSOR_ID AS CHAR) TEMP2, A.TEMP3,
+            A.USER_CONTENT,
+            A.SHOW_LABEL,
+            NULL AS DYN_INFO,
+            '' AS LOCATION,
+            '' AS ICMP_POLL,
+            A.ITEM_CONF
+        FROM
+            CM_TOPO_ITEM A, CM_FMS_SENSOR B
+        WHERE 	A.MNG_NO = B.MNG_NO
+        AND 	A.GRP_NO = #{grpNo}
+        AND 	A.DEV_KIND1 = 'SENSOR'
+        AND     A.TEMP1 = B.FMS_SEQ_NO
+        AND 	A.USER_ID = <include refid="CommonV65.selectMapUserId" />
+        UNION ALL
+        SELECT
+            A.UNIQ_ID, A.ITEM_ALIAS AS ITEM_NAME, A.DEV_PERF,
+            IFNULL(A.XPOINT, 950) AS XPOINT, IFNULL(A.YPOINT, 650) AS YPOINT,
+            A.ITEM_NO, A.GRP_NO, A.MNG_NO, A.DEV_KIND1, A.DEV_KIND2,
+            A.USR_KIND, IFNULL(A.ITEM_SIZE, 3) AS ITEM_SIZE, '' AS DEV_IP,
+            A.ITEM_ALIAS, IFNULL(A.FONT_SIZE, 0) AS FONT_SIZE, IFNULL(IF(A.EVT_LEVEL = -2, 0, A.EVT_LEVEL), 4) AS EVT_LEVEL,
+            0 AS ENG_NO, A.EVT_TYPE, 0 AS CHILD_CNT,
+            A.TEMP1, A.TEMP2, A.TEMP3,
+            A.USER_CONTENT,
+            A.SHOW_LABEL,
+            NULL AS DYN_INFO,
+            '' AS LOCATION,
+            '' AS ICMP_POLL,
+            A.ITEM_CONF
+        FROM
+            CM_TOPO_ITEM A
+        WHERE	A.DEV_KIND1 = 'POINT'
+        AND 	A.GRP_NO = #{grpNo}
+        AND 	A.USER_ID = <include refid="CommonV65.selectMapUserId" />
+        UNION ALL
+        SELECT
+            A.UNIQ_ID, IFNULL(NULLIF(B.WAS_NM, ''), A.ITEM_ALIAS) AS ITEM_NAME, A.DEV_PERF,
+            IFNULL(A.XPOINT, 950) AS XPOINT, IFNULL(A.YPOINT, 650) AS YPOINT,
+            A.ITEM_NO, A.GRP_NO, A.MNG_NO, A.DEV_KIND1, A.DEV_KIND2, A.USR_KIND,
+            IFNULL(A.ITEM_SIZE, 3) AS ITEM_SIZE,
+            CONCAT(B.DEV_IP, ':', B.CONN_PORT) AS DEV_IP,
+            IFNULL(A.ITEM_ALIAS, B.WAS_NM) AS ITEM_ALIAS,
+            IFNULL(A.FONT_SIZE, 0) AS FONT_SIZE, IFNULL(IF(A.EVT_LEVEL = -2, 0, A.EVT_LEVEL), 0) AS EVT_LEVEL,
+            0 AS ENG_NO, A.EVT_TYPE,
+            0 AS CHILD_CNT,
+            A.TEMP1, A.TEMP2, A.TEMP3,
+            A.USER_CONTENT,
+            A.SHOW_LABEL,
+            NULL AS DYN_INFO,
+            '' AS LOCATION,
+            '' AS ICMP_POLL,
+            A.ITEM_CONF
+        FROM
+            CM_TOPO_ITEM A, ( SELECT A.DEV_IP, B.* FROM CM_DEV10 A, NT_SVR_WAS B WHERE A.MNG_NO = B.MNG_NO) B
+        WHERE	A.MNG_NO = B.WAS_NO
+        AND 	A.DEV_KIND1 IN ('WAS')
+        AND 	A.GRP_NO = #{grpNo}
+        AND 	A.USER_ID = <include refid="CommonV65.selectMapUserId" />
+        UNION ALL
+        SELECT
+            A.UNIQ_ID, IFNULL(NULLIF(B.DBMS_NM, ''), A.ITEM_ALIAS) AS ITEM_NAME, A.DEV_PERF,
+            IFNULL(A.XPOINT, 950) AS XPOINT, IFNULL(A.YPOINT, 650) AS YPOINT,
+            A.ITEM_NO, A.GRP_NO, A.MNG_NO, A.DEV_KIND1, A.DEV_KIND2, A.USR_KIND,
+            IFNULL(A.ITEM_SIZE, 3) AS ITEM_SIZE,
+            CONCAT(B.DEV_IP, ':', B.DBMS_PORT) AS DEV_IP,
+            IFNULL(A.ITEM_ALIAS, B.DBMS_NM) AS ITEM_ALIAS,
+            IFNULL(A.FONT_SIZE, 0) AS FONT_SIZE, IFNULL(IF(A.EVT_LEVEL = -2, 0, A.EVT_LEVEL), 0) AS EVT_LEVEL,
+            0 AS ENG_NO, A.EVT_TYPE,
+            0 AS CHILD_CNT,
+            A.TEMP1, A.TEMP2, A.TEMP3,
+            A.USER_CONTENT,
+            A.SHOW_LABEL,
+            NULL AS DYN_INFO,
+            '' AS LOCATION,
+            '' AS ICMP_POLL,
+            A.ITEM_CONF
+        FROM
+            CM_TOPO_ITEM A,( SELECT A.DEV_IP, B.* FROM CM_DEV10 A, NT_SVR_DBMS B WHERE A.MNG_NO = B.MNG_NO) B
+        WHERE	A.MNG_NO = B.DBMS_NO
+        AND 	A.DEV_KIND1 IN ('DBMS')
+        AND 	A.GRP_NO = #{grpNo}
+        AND 	A.USER_ID = <include refid="CommonV65.selectMapUserId" />
+    </sql>
+
+    <!-- 토폴로지 아이템 조회 -->
+    <select id="selectTopoItemList" resultType="CamelHashMap">
+        SELECT ITEM.*,
+                CI.IMG_KIND3,
+                MAINT1.USER_NAME AS USER_MAIN,
+                MAINT1.USER_NAME AS USER_SUB,
+                CDS.HA_STATUS
+        FROM (
+            SELECT
+                A.UNIQ_ID, B.GRP_NAME AS ITEM_NAME, A.DEV_PERF,
+                IFNULL(A.XPOINT, 950) AS
+                XPOINT, IFNULL(A.YPOINT, 650) AS YPOINT,
+                A.ITEM_NO, A.GRP_NO, A.MNG_NO,
+                A.DEV_KIND1, A.DEV_KIND2, A.USR_KIND,
+                IFNULL(A.ITEM_SIZE, 3) AS
+                ITEM_SIZE, B.GRP_NAME AS DEV_IP,
+                A.ITEM_ALIAS,
+                IFNULL(A.FONT_SIZE, 0) AS FONT_SIZE,
+                IFNULL(IF(EVTGRP.EVT_LEVEL = -2, 0, EVTGRP.EVT_LEVEL), 1) AS EVT_LEVEL,
+                0 AS ENG_NO,
+                A.EVT_TYPE,
+                0 AS CHILD_CNT,
+                B.VIEW_TYPE AS TEMP1, A.TEMP2, A.TEMP3,
+                A.USER_CONTENT,
+                A.SHOW_LABEL,
+                NULL AS DYN_INFO,
+                '' AS LOCATION,
+                0 AS ICMP_POLL,
+                A.ITEM_CONF
+            FROM
+              CM_TOPO_ITEM A
+              LEFT JOIN
+                (SELECT USER_ID, ITEM_NO, MNG_NO, MAX(EVT_LEVEL) AS EVT_LEVEL
+                   FROM (
+                         SELECT CTI.USER_ID, CTI.ITEM_NO, CTI.MNG_NO,
+                               (
+                                SELECT IFNULL(MAX(A.EVT_LEVEL), 0) + 1 AS EVT_LEVEL
+                                  FROM  CM_EVT A, CM_TOPO_ITEM B FORCE INDEX (CM_TOPO_ITEM_IDX1)
+                                 WHERE A.SRC_MNG_NO = B.MNG_NO
+                                   AND B.DEV_KIND1 NOT IN ('GRP', 'SUB', 'RACK', 'AP_CONTROLLER', 'VSVR')
+                                   AND A.EVT_LEVEL > 0
+                                   AND B.GRP_NO IN (SELECT SUB_NO
+                                                      FROM CM_TOPO_LEAF FORCE INDEX (CM_TOPO_LEAF_IDX1)
+                                                     WHERE GRP_NO = CTI.MNG_NO
+                                                       AND USER_ID = CTI.USER_ID)
+                                   AND B.USER_ID = CTI.USER_ID
+                                   AND A.STATUS = 'C'
+                               ) AS EVT_LEVEL
+                         FROM    CM_TOPO_ITEM CTI
+                         WHERE   CTI.DEV_KIND1 = 'GRP'
+                         GROUP BY CTI.USER_ID, CTI.ITEM_NO, CTI.MNG_NO
+                         UNION ALL
+                         SELECT CTI.USER_ID, CTI.ITEM_NO, CTI.MNG_NO,
+                               (
+                                SELECT IFNULL(MAX(C.EVT_LEVEL), 0) + 1 AS EVT_LEVEL
+                                  FROM S_CM_RACK_CONF A, CM_TOPO_ITEM B, CM_EVT C
+                                 WHERE A.RACK_NO = B.MNG_NO
+                                   AND B.DEV_KIND1 = 'RACK'
+                                   AND A.MNG_NO = C.SRC_MNG_NO
+                                   AND B.GRP_NO IN (SELECT SUB_NO
+                                                      FROM CM_TOPO_LEAF FORCE INDEX (CM_TOPO_LEAF_IDX1)
+                                                     WHERE GRP_NO = CTI.MNG_NO
+                                                       AND USER_ID = CTI.USER_ID)
+                                   AND B.USER_ID = CTI.USER_ID
+                                   AND C.STATUS = 'C'
+                               ) AS EVT_LEVEL
+                            FROM    CM_TOPO_ITEM CTI
+                            WHERE   CTI.DEV_KIND1 = 'GRP'
+                            GROUP BY CTI.USER_ID, CTI.ITEM_NO, CTI.MNG_NO
+                    ) TB
+                 GROUP BY USER_ID, ITEM_NO, MNG_NO
+                ) EVTGRP
+               ON A.USER_ID = EVTGRP.USER_ID
+              AND A.ITEM_NO = EVTGRP.ITEM_NO
+              AND A.MNG_NO = EVTGRP.MNG_NO
+               , CM_TOPO_GROUP B
+            WHERE 	A.GRP_NO = B.GRP_PARENT
+            AND 	A.MNG_NO = B.GRP_NO
+            AND		A.DEV_KIND1 = 'GRP'
+            AND 	A.USER_ID = B.USER_ID
+            AND 	A.USER_ID = <include refid="CommonV65.selectMapUserId" />
+            AND A.GRP_NO = #{grpNo}
+                    UNION ALL
+                    <include refid="sqlTopoItemListWithoutGroupCmEvt"/>
+
+        ) ITEM
+        LEFT OUTER JOIN COM_IMG CI
+        ON 	ITEM.USR_KIND = CI.IMG_UID
+        LEFT OUTER JOIN (SELECT CDM.MNG_NO, CDM.MAINT_USER1, CU.USER_NAME FROM CM_DEV10_MAINT CDM, COM_USER CU WHERE CDM.MAINT_USER1 = CU.USER_ID) MAINT1
+        ON ITEM.MNG_NO = MAINT1.MNG_NO
+        LEFT OUTER JOIN (SELECT CDM.MNG_NO, CDM.MAINT_USER2, CU.USER_NAME FROM CM_DEV10_MAINT CDM, COM_USER CU WHERE CDM.MAINT_USER2 = CU.USER_ID) MAINT2
+        ON ITEM.MNG_NO = MAINT2.MNG_NO
+        LEFT JOIN CM_DEV10_STATUS CDS ON ITEM.MNG_NO = CDS.MNG_NO
+    </select>
+
+    <!-- 토폴로지 링크 조회 -->
+    <select id="selectTopoLinkList" resultMap="resultTopoLink">
+        SELECT
+            A.LINK_NO,
+            A.MNG_NO1,
+            A.MNG_NO2,
+            A.IF_IDX1,
+            A.IF_IDX2,
+            A.ITEM_NO1,
+            A.ITEM_NO2,
+            IFNULL(IF(A.EVT_LEVEL1 = -2, 0, A.EVT_LEVEL1), 0) AS EVT_LEVEL1,
+            IFNULL(IF(A.EVT_LEVEL2 = -2, 0, A.EVT_LEVEL2), 0) AS EVT_LEVEL2,
+            IFNULL(A.LINE_WIDTH1, 0) AS LINE_WIDTH1,
+            IFNULL(A.LINE_WIDTH2, 0) AS LINE_WIDTH2,
+            A.LINK_NAME1,
+            A.LINK_NAME2,
+            IFNULL(A.LINK_IDX1, 0) AS LINK_IDX1,
+            IFNULL(A.LINK_IDX2, 0) AS LINK_IDX2,
+            IFNULL(A.TRAFFIC_TYPE1, 'I') AS TRAFFIC_TYPE1,
+            IFNULL(A.TRAFFIC_TYPE2, 'I') AS TRAFFIC_TYPE2,
+            IFNULL(A.TRAFFIC1, 0) AS TRAFFIC1,
+            IFNULL(A.TRAFFIC2, 0) AS TRAFFIC2,
+            IFNULL(A.TRAFFIC1_IN, 0) AS TRAFFIC1_IN,
+            IFNULL(A.TRAFFIC1_OUT, 0) AS TRAFFIC1_OUT,
+            IFNULL(A.TRAFFIC2_IN, 0) AS TRAFFIC2_IN,
+            IFNULL(A.TRAFFIC2_OUT, 0) AS TRAFFIC2_OUT,
+            A.POINT1,
+            A.POINT2,
+            A.POINT3,
+            A.IS_MAIN,
+            A.IS_MULTI,
+            IFNULL(A.LINE_SIZE, 1) AS LINE_SIZE,
+            IFNULL(A.LINE_TYPE, 1) AS LINE_TYPE,
+            A.GC_NO,
+            A.SH_EVT,
+            IFNULL(A.LINE_POINT_UD1, 0) AS LINE_POINT_UD1,
+            IFNULL(A.LINE_POINT_UD2, 0) AS LINE_POINT_UD2,
+            IFNULL(A.LINE_POINT_LR1, 0) AS LINE_POINT_LR1,
+            IFNULL(A.LINE_POINT_LR2, 0) AS LINE_POINT_LR2,
+            A.CURVE_X1,
+            A.CURVE_Y1,
+            A.CURVE_X2,
+            A.CURVE_Y2,
+            IFNULL(A.LINE_STYLE, '') AS LINE_STYLE,
+            A.LINE_COLOR,
+            A.POLLING_COLOR,
+            IF(ISNULL(A.POLLING_COLOR) AND A.MNG_NO1 IS NOT NULL AND A.IF_IDX1 IS NOT NULL, B.POLLING_COLOR, NULL) AS USER_POLLING_LINE_COLOR1,
+            IF(ISNULL(A.POLLING_COLOR) AND A.MNG_NO2 IS NOT NULL AND A.IF_IDX2 IS NOT NULL, B.POLLING_COLOR, NULL) AS USER_POLLING_LINE_COLOR2,
+            IFNULL(LINE_TRAFFIC_EFFECT, 'None') AS LINE_TRAFFIC_EFFECT,
+            IF(IFNULL(LINE_TRAFFIC_EFFECT_SPEED, 0) = 0, 1, LINE_TRAFFIC_EFFECT_SPEED)  AS LINE_TRAFFIC_EFFECT_SPEED,
+            IFNULL(LINE_FLOW_EFFECT, 'None') AS LINE_FLOW_EFFECT,
+            IF(IFNULL(LINE_FLOW_EFFECT_SPEED, 0) = 0, 1, LINE_FLOW_EFFECT_SPEED)  AS LINE_FLOW_EFFECT_SPEED,
+            IF(IFNULL(LINE_FLOW_EFFECT_COUNT, 0) = 0, 1, LINE_FLOW_EFFECT_COUNT)  AS LINE_FLOW_EFFECT_COUNT,
+            LINE_FLOW_EFFECT_COLOR,
+            LINE_LABEL_CONF
+        FROM CM_TOPO_LINK A, CM_TOPO_USER B,
+        (<include refid="CommonV65.selectMapUserId" />) C
+        WHERE	A.GRP_NO = #{grpNo}
+        AND A.USER_ID = B.USER_ID
+        AND A.USER_ID = C.USER_ID
+    </select>
+
+    <!-- 배경 이미지 조회 -->
+    <select id="selectTopoGrpInfo" resultType="com.dash.d3map.topo.dto.MapTopoGrpDto">
+        SELECT	IFNULL(CTG.BG_FILE_NM, 'BG_Default') AS BG_FILE_NM,
+                CTG.GRP_NO,
+                CTG.GRP_NAME,
+                CTG.GRP_PARENT,
+				IFNULL(CTG.VIEW_TYPE, 'TOPO') AS VIEW_TYPE,
+                TGRP.PATH_NAME
+        FROM	CM_TOPO_GROUP CTG,
+                (WITH RECURSIVE CTE AS (
+                 SELECT
+                     GRP_NO,
+                     GRP_NAME,
+                     GRP_PARENT,
+                     CAST(GRP_NAME AS CHAR(200)) AS PATH_NAME
+                 FROM CM_TOPO_GROUP
+                 WHERE GRP_NO = (SELECT GRP_NO
+							       FROM CM_TOPO_GROUP
+							      WHERE GRP_PARENT = 0
+							        AND USER_ID = <include refid="CommonV65.selectMapUserId" />)
+                 AND USER_ID = <include refid="CommonV65.selectMapUserId" />
+                 UNION ALL
+                 SELECT
+                     a.GRP_NO ,
+                     a.GRP_NAME,
+                     a.GRP_PARENT,
+                     CONCAT(b.PATH_NAME, ' > ', a.GRP_NAME)
+                 FROM CM_TOPO_GROUP a
+                 INNER JOIN CTE b ON a.GRP_PARENT = b.GRP_NO
+                 AND a.USER_ID = <include refid="CommonV65.selectMapUserId" />)
+              SELECT DISTINCT * FROM CTE ) TGRP
+        WHERE	CTG.GRP_NO = #{grpNo}
+        AND     CTG.GRP_NO = TGRP.GRP_NO
+        AND		USER_ID = <include refid="CommonV65.selectMapUserId" />
+    </select>
+
+    <!-- 맵 최상위 그룹번호 조회 -->
+    <select id="selectMapTopGrpInfo" resultType="CamelHashMap">
+        <choose>
+            <when test="isshare == 1">
+                <!-- 상속받은 계정인 경우 -->
+                SELECT	GRP_NO, CNT, #{isshare} as ISSHARE,
+                (SELECT GRP_PARENT FROM CM_TOPO_GROUP WHERE USER_ID = T.USER_ID AND GRP_NO = T.GRP_NO) AS GRP_PARENT,
+                (SELECT GRP_NAME FROM CM_TOPO_GROUP WHERE USER_ID = T.USER_ID AND GRP_NO = T.GRP_NO) AS GRP_NAME,
+                (SELECT GRP_NAME FROM CM_TOPO_GROUP WHERE USER_ID = T.USER_ID AND GRP_NO = (SELECT GRP_PARENT FROM CM_TOPO_GROUP WHERE GRP_NO = T.GRP_NO AND USER_ID = T.USER_ID)) AS GRP_PARENT_NM
+                FROM	(
+                SELECT	MIN(A1.GRP_NO) AS GRP_NO, COUNT(*) AS CNT, MIN(USER_ID) AS USER_ID
+                FROM	CM_TOPO_GROUP A1
+                WHERE	A1.USER_ID = <include refid="CommonV65.selectMapUserId"/>
+                AND 	A1.GRP_NO IN (SELECT TOPO_GRP_NO FROM CM_TOPO_AUTH_GROUP_SUBGRP WHERE AUTH_GRP_NO = #{sessTopoAuthGrpNo})
+                AND 	A1.GRP_PARENT NOT IN (SELECT TOPO_GRP_NO FROM CM_TOPO_AUTH_GROUP_SUBGRP WHERE AUTH_GRP_NO = #{sessTopoAuthGrpNo})
+                ) T
+            </when>
+            <otherwise>
+                <choose>
+                    <when test="_parameter.containsKey('isTopGrp')">
+                        SELECT IFNULL(JSON_UNQUOTE( JSON_EXTRACT(conf ,'$.topoGrpNo')), 1) AS grp_no
+                        FROM widget_dash_resize
+                        WHERE tab_seq = #{tabSeq}
+                        AND display = 'Topology'
+                    </when>
+                    <otherwise>
+                        <!-- 피상속 계정 (본인 계정) 인경우 -->
+                        SELECT	GRP_NO, CNT, ISSHARE, PARENT_ID, USER_ID,
+                        (SELECT GRP_PARENT FROM CM_TOPO_GROUP WHERE USER_ID = #{userId} AND GRP_NO = T.GRP_NO) AS GRP_PARENT,
+                        (SELECT GRP_NAME FROM CM_TOPO_GROUP WHERE USER_ID = #{userId} AND GRP_NO = T.GRP_NO) AS GRP_NAME,
+                        (SELECT GRP_NAME FROM CM_TOPO_GROUP WHERE USER_ID = #{userId} AND GRP_NO = (SELECT GRP_PARENT FROM CM_TOPO_GROUP WHERE GRP_NO = T.GRP_NO AND USER_ID = #{userId})) AS GRP_PARENT_NM
+                        FROM	(
+                        SELECT	MIN(A1.GRP_NO) AS GRP_NO, COUNT(*) AS CNT, U1.ISSHARE, U1.PARENT_ID, U1.USER_ID
+                        FROM	CM_TOPO_GROUP A1, CM_TOPO_LEAF B1, COM_USER U1
+                        WHERE	A1.USER_ID = #{userId}
+                        AND 	A1.USER_ID = B1.USER_ID
+                        AND 	A1.GRP_NO = B1.GRP_NO
+                        AND 	B1.SUB_NO NOT IN (SELECT DISTINCT SUB_NO FROM CM_TOPO_LEAF WHERE USER_ID = #{userId} AND GRP_NO != SUB_NO)
+                        AND     A1.USER_ID = U1.USER_ID
+                        ) T
+                    </otherwise>
+                </choose>
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 상위그룹번호 조회 -->
+    <select id="selectParentGrpNo" resultType="long">
+        SELECT  IFNULL((
+            SELECT  GRP_PARENT
+            FROM CM_TOPO_GROUP A
+            WHERE   A.GRP_NO = #{grpNo}
+            AND     A.USER_ID = <include refid="CommonV65.selectMapUserId"/>
+            <if test="isshare == 1">
+            AND A.GRP_PARENT IN (
+                SELECT DISTINCT B1.SUB_NO
+                FROM  CM_TOPO_AUTH_GROUP_SUBGRP A1, CM_TOPO_LEAF B1
+                WHERE A1.AUTH_GRP_NO = #{sessTopoAuthGrpNo}
+                AND   A1.TOPO_GRP_NO = B1.GRP_NO
+                AND   B1.USER_ID = <include refid="CommonV65.selectMapUserId"/>
+            )
+            </if>
+        ), 1) AS GPR_PARENT
+    </select>
+
+    <!-- 곡선 조회 -->
+    <select id="selectSplineToolList" resultType="CamelHashMap">
+        SELECT
+            SPLINE_NO,
+            USER_ID,
+            GRP_NO,
+            SPLINE_TYPE,
+            SPLINE_STRING,
+            SPLINE_CONF,
+            SPLINE_SIZE,
+            SPLINE_STYLE,
+            SPLINE_COLOR,
+            'spline' AS ITEM_TYPE
+        FROM    CM_TOPO_SPLINE
+        WHERE   USER_ID = <include refid="CommonV65.selectMapUserId"/>
+        AND     GRP_NO = #{grpNo}
+        <if test="_parameter.containsKey('splineNo') and splineNo > 0">
+            AND SPLINE_NO = #{splineNo}
+        </if>
+    </select>
+
+    <select id="selectDrawToolList" resultType="CamelHashMap">
+        SELECT  DRAW_NO,
+        USER_ID,
+        GRP_NO,
+        DEV_KIND1,
+        DEV_KIND2,
+        POS_X,
+        POS_Y,
+        WIDTH,
+        HEIGHT,
+        FILL_COLOR,
+        FILL_OPACITY,
+        STROKE_COLOR,
+        STROKE_OPACITY,
+        STROKE_WIDTH,
+        CORNER_RADIUS,
+        FONT_SIZE,
+        FONT_WEIGHT,
+        TEXT_ANCHOR,
+        CASE DEV_KIND1
+        WHEN 'DRAW_TEXT_AREA'
+        THEN
+        TEXT_AREA_CONTENT
+        ELSE
+        TEXT_CONTENT
+        END AS  TEXT_CONTENT,
+        RX,
+        RY,
+        SORT_IDX,
+        IFNULL(FONT_DISTANCE,20)AS FONT_DISTANCE,
+        IFNULL(ROTATION,0) AS ROTATION,
+        IFNULL(LINE_STYLE, '') AS LINE_STYLE,
+        DRAW_CONF
+        FROM    CM_TOPO_DRAW_TOOL
+        WHERE   USER_ID = <include refid="CommonV65.selectMapUserId"/>
+        AND     GRP_NO = #{grpNo}
+        <if test="_parameter.containsKey('drawNo') and drawNo > 0">
+            AND DRAW_NO = #{drawNo}
+        </if>
+        ORDER BY SORT_IDX
+    </select>
+
+    <sql id="sqlTopoItemListWithoutGroupCmEvt">
+        SELECT TBITM.UNIQ_ID, TBITM.ITEM_NAME, TBITM.DEV_PERF, TBITM.XPOINT, TBITM.YPOINT, TBITM.ITEM_NO,
+                TBITM.GRP_NO, TBITM.MNG_NO, TBITM.DEV_KIND1, TBITM.DEV_KIND2, TBITM.USR_KIND, TBITM.ITEM_SIZE,
+                TBITM.DEV_IP, TBITM.ITEM_ALIAS, TBITM.FONT_SIZE, IFNULL(IF(TBEVT.EVT_LEVEL = -2, 0, TBEVT.EVT_LEVEL), 1) AS EVT_LEVEL,
+                TBITM.ENG_NO, TBITM.EVT_TYPE, TBITM.CHILD_CNT, TBITM.TEMP1, TBITM.TEMP2, TBITM.TEMP3,	TBITM.USER_CONTENT,
+                TBITM.SHOW_LABEL, TBITM.DYN_INFO, TBITM.LOCATION, TBITM.ICMP_POLL, TBITM.ITEM_CONF
+        FROM (
+                SELECT
+                    A.UNIQ_ID,
+                    IFNULL(IFNULL(NULLIF(B.USER_DEV_NAME,''), NULLIF(B.DEV_NAME, '')), B.DEV_IP) AS ITEM_NAME, A.DEV_PERF,
+                    IFNULL(A.XPOINT, 950) AS XPOINT, IFNULL(A.YPOINT, 650) AS YPOINT,
+                    A.ITEM_NO, A.GRP_NO, B.MNG_NO, B.DEV_KIND1, B.DEV_KIND2,
+                    A.USR_KIND,
+                    IFNULL(A.ITEM_SIZE, 3) AS ITEM_SIZE, IFNULL(B.DEV_IP, B.DEV_NAME)
+                    AS DEV_IP, A.ITEM_ALIAS,
+                    IFNULL(A.FONT_SIZE, 0) AS FONT_SIZE,
+                    0 AS ENG_NO, A.EVT_TYPE,
+                    0 AS CHILD_CNT,
+                    A.TEMP1, A.TEMP2, A.TEMP3,
+                    A.USER_CONTENT,
+                    A.SHOW_LABEL,
+                    <choose>
+                        <when test="_parameter.containsKey('dynCols')">
+                            (SELECT  CONCAT(
+                                <foreach collection="dynCols.entrySet()" index="key" item="value" separator=",">
+                                    '\n', #{key}, ' : ', IFNULL(NULLIF(${value},''),'')
+                                </foreach>
+                                )
+                            FROM    CM_DEV10_DYN_INFO
+                            WHERE   MNG_NO = B.MNG_NO
+                            LIMIT 1)  AS DYN_INFO,
+                        </when>
+                        <otherwise>
+                            NULL AS DYN_INFO,
+                        </otherwise>
+                    </choose>
+                  B.DEV_LOCATION AS LOCATION,
+                  B.ICMP_POLL,
+                  A.ITEM_CONF
+                FROM
+                  CM_TOPO_ITEM A, CM_DEV10 B
+                WHERE 	A.MNG_NO = B.MNG_NO
+                AND 	A.DEV_KIND1 IN ('DEV', 'SVR')
+                AND 	A.GRP_NO = #{grpNo}
+                AND 	A.USER_ID = <include refid="CommonV65.selectMapUserId" />
+                UNION ALL
+                SELECT
+                    A.UNIQ_ID, IFNULL(NULLIF(B.SUB_NAME,''), B.IP) AS ITEM_NAME, A.DEV_PERF,
+                    IFNULL(A.XPOINT, 950) AS XPOINT, IFNULL(A.YPOINT, 650) AS YPOINT,
+                    A.ITEM_NO, A.GRP_NO, A.MNG_NO, A.DEV_KIND1, A.DEV_KIND2,
+                    A.USR_KIND,
+                    IFNULL(A.ITEM_SIZE, 3) AS ITEM_SIZE, IFNULL(NULLIF(B.IP, ''), B.SUB_NAME) AS DEV_IP, A.ITEM_ALIAS,
+                    IFNULL(A.FONT_SIZE, 0) AS FONT_SIZE,
+                    0 AS ENG_NO,
+                    A.EVT_TYPE,
+                    0 AS CHILD_CNT,
+                    A.TEMP1, A.TEMP2, A.TEMP3,
+                    A.USER_CONTENT,
+                    A.SHOW_LABEL,
+                    NULL AS DYN_INFO,
+                    '' AS LOCATION,
+                    0 AS ICMP_POLL,
+                    A.ITEM_CONF
+                FROM
+                  CM_TOPO_ITEM A, NT_CFG_SUBNET B
+                WHERE 	A.MNG_NO = B.SUB_NO
+                AND 	A.DEV_KIND1 = 'SUB'
+                AND 	A.GRP_NO = #{grpNo}
+                AND 	A.USER_ID = <include refid="CommonV65.selectMapUserId" />
+                UNION ALL
+                SELECT
+                    A.UNIQ_ID,
+                    IFNULL(NULLIF(B.DEV_NAME, ''), A.ITEM_ALIAS) AS ITEM_NAME, A.DEV_PERF,
+                    IFNULL(A.XPOINT, 950) AS XPOINT, IFNULL(A.YPOINT, 650) AS
+                    YPOINT,
+                    A.ITEM_NO, A.GRP_NO, A.MNG_NO, A.DEV_KIND1, A.DEV_KIND2,
+                    A.USR_KIND,
+                    IFNULL(A.ITEM_SIZE, 3) AS ITEM_SIZE,
+                    IFNULL( NULLIF(B.DEV_IP, ''), B.URL ) AS DEV_IP,
+                    A.ITEM_ALIAS,
+                    IFNULL(A.FONT_SIZE, 0) AS FONT_SIZE,
+                    0 AS ENG_NO, A.EVT_TYPE,
+                    0 AS CHILD_CNT,
+                    A.TEMP1, A.TEMP2, A.TEMP3,
+                    A.USER_CONTENT,
+                    A.SHOW_LABEL,
+                    NULL AS DYN_INFO,
+                '' AS LOCATION,
+                0 AS ICMP_POLL,
+                  A.ITEM_CONF
+                FROM
+                  CM_TOPO_ITEM A LEFT OUTER JOIN CM_TOPO_ETC B
+                ON (A.ITEM_NO = B.ITEM_NO AND A.USER_ID = B.USER_ID)
+                WHERE 	A.DEV_KIND1 = 'ETC'
+                AND 	A.GRP_NO = #{grpNo}
+                AND		A.USER_ID = <include refid="CommonV65.selectMapUserId" />
+                UNION ALL
+                SELECT
+                    A.UNIQ_ID, IFNULL(NULLIF(B.RACK_NAME, ''), A.ITEM_ALIAS) AS ITEM_NAME, A.DEV_PERF,
+                    IFNULL(A.XPOINT, 950) AS XPOINT, IFNULL(A.YPOINT, 650) AS YPOINT,
+                    A.ITEM_NO, A.GRP_NO, A.MNG_NO, A.DEV_KIND1, A.DEV_KIND2,
+                    A.USR_KIND,
+                    IFNULL(A.ITEM_SIZE, 3) AS ITEM_SIZE, CAST(B.RACK_U AS CHAR(10)) AS DEV_IP,
+                    IFNULL(A.ITEM_ALIAS, B.RACK_NAME) AS ITEM_ALIAS,
+                    IFNULL(A.FONT_SIZE, 0) AS FONT_SIZE,
+                    0 AS ENG_NO, A.EVT_TYPE,
+                    0 AS CHILD_CNT,
+                    A.TEMP1, A.TEMP2, A.TEMP3,
+                    A.USER_CONTENT,
+                    A.SHOW_LABEL,
+                    NULL AS DYN_INFO,
+                    '' AS LOCATION,
+                    0 AS ICMP_POLL,
+                    A.ITEM_CONF
+                FROM
+                  CM_TOPO_ITEM A, S_CM_RACK B
+                WHERE 	A.MNG_NO = B.RACK_NO
+                AND		A.DEV_KIND1 = 'RACK'
+                AND 	A.GRP_NO = #{grpNo}
+                AND 	A.USER_ID = <include refid="CommonV65.selectMapUserId" />
+                UNION ALL
+                SELECT
+                    A.UNIQ_ID,
+                    CASE
+                        WHEN B.SENSOR_NAME IS NOT NULL AND B.USR_NAME IS NOT NULL THEN CONCAT(B.SENSOR_NAME, '-', B.USR_NAME)
+                        WHEN B.SENSOR_NAME IS NOT NULL THEN B.SENSOR_NAME
+                        WHEN B.USR_NAME IS NOT NULL THEN B.USR_NAME
+                    END ITEM_NAME,
+                    A.DEV_PERF,
+                    IFNULL(A.XPOINT, 950) AS XPOINT, IFNULL(A.YPOINT, 650) AS YPOINT,
+                    A.ITEM_NO, A.GRP_NO, A.MNG_NO, A.DEV_KIND1, A.DEV_KIND2,
+                    A.USR_KIND, IFNULL(A.ITEM_SIZE, 3) AS ITEM_SIZE,
+                    CASE
+                    WHEN (SELECT DEV_IP FROM CM_DEV10 WHERE DEV_KIND2 = 'RTU' AND MNG_NO = B.MNG_NO) IS NULL THEN
+                    B.SENSOR_NAME
+                    ELSE
+                    (SELECT DEV_IP FROM CM_DEV10 WHERE DEV_KIND2 = 'RTU' AND MNG_NO = B.MNG_NO)
+                    END	AS DEV_IP,
+                    IFNULL(NULLIF(A.ITEM_ALIAS, ''),
+                        CASE
+                            WHEN B.SENSOR_NAME IS NOT NULL
+                            AND B.USR_NAME IS NOT NULL THEN CONCAT(B.SENSOR_NAME, '-', B.USR_NAME)
+                            WHEN B.SENSOR_NAME IS NOT NULL THEN B.SENSOR_NAME
+                            WHEN B.USR_NAME IS NOT NULL THEN B.USR_NAME
+                        END
+                    ) AS ITEM_ALIAS,
+                    IFNULL(A.FONT_SIZE, 0) AS FONT_SIZE,
+                    0 AS ENG_NO, A.EVT_TYPE,
+                    0 AS CHILD_CNT,
+                    A.TEMP1, CAST(B.SENSOR_ID AS CHAR) TEMP2, A.TEMP3,
+                    A.USER_CONTENT,
+                    A.SHOW_LABEL,
+                    NULL AS DYN_INFO,
+                    '' AS LOCATION,
+                    0 AS ICMP_POLL,
+                    A.ITEM_CONF
+                FROM
+                  CM_TOPO_ITEM A, CM_FMS_SENSOR B
+                WHERE 	A.MNG_NO = B.MNG_NO
+                AND 	A.GRP_NO = #{grpNo}
+                AND 	A.DEV_KIND1 = 'SENSOR'
+                AND     A.TEMP1 = B.FMS_SEQ_NO
+                AND 	A.USER_ID = <include refid="CommonV65.selectMapUserId" />
+                UNION ALL
+                SELECT
+                    A.UNIQ_ID, A.ITEM_ALIAS AS ITEM_NAME, A.DEV_PERF,
+                    IFNULL(A.XPOINT, 950) AS XPOINT, IFNULL(A.YPOINT, 650) AS YPOINT,
+                    A.ITEM_NO, A.GRP_NO, A.MNG_NO, A.DEV_KIND1, A.DEV_KIND2,
+                    A.USR_KIND, IFNULL(A.ITEM_SIZE, 3) AS ITEM_SIZE, '' AS DEV_IP,
+                    A.ITEM_ALIAS, IFNULL(A.FONT_SIZE, 0) AS FONT_SIZE,
+                    0 AS ENG_NO, A.EVT_TYPE, 0 AS CHILD_CNT,
+                    A.TEMP1, A.TEMP2, A.TEMP3,
+                    A.USER_CONTENT,
+                    A.SHOW_LABEL,
+                    NULL AS DYN_INFO,
+                    '' AS LOCATION,
+                    0 AS ICMP_POLL,
+                    A.ITEM_CONF
+                FROM
+                  CM_TOPO_ITEM A
+                WHERE	A.DEV_KIND1 = 'POINT'
+                AND 	A.GRP_NO = #{grpNo}
+                AND 	A.USER_ID = <include refid="CommonV65.selectMapUserId" />
+                UNION ALL
+                SELECT
+                    A.UNIQ_ID, IFNULL(NULLIF(B.WAS_NM, ''), A.ITEM_ALIAS) AS ITEM_NAME, A.DEV_PERF,
+                    IFNULL(A.XPOINT, 950) AS XPOINT, IFNULL(A.YPOINT, 650) AS YPOINT,
+                    A.ITEM_NO, A.GRP_NO, A.MNG_NO, A.DEV_KIND1, A.DEV_KIND2, A.USR_KIND,
+                    IFNULL(A.ITEM_SIZE, 3) AS ITEM_SIZE,
+                    CONCAT(B.DEV_IP, ':', B.CONN_PORT) AS DEV_IP,
+                    IFNULL(A.ITEM_ALIAS, B.WAS_NM) AS ITEM_ALIAS,
+                    IFNULL(A.FONT_SIZE, 0) AS FONT_SIZE,
+                    0 AS ENG_NO, A.EVT_TYPE,
+                    0 AS CHILD_CNT,
+                    A.TEMP1, A.TEMP2, A.TEMP3,
+                    A.USER_CONTENT,
+                    A.SHOW_LABEL,
+                    NULL AS DYN_INFO,
+                    '' AS LOCATION,
+                    0 AS ICMP_POLL,
+                    A.ITEM_CONF
+                FROM
+                CM_TOPO_ITEM A, ( SELECT A.DEV_IP, B.* FROM CM_DEV10 A, NT_SVR_WAS B WHERE A.MNG_NO = B.MNG_NO) B
+                WHERE	A.MNG_NO = B.WAS_NO
+                AND 	A.DEV_KIND1 IN ('WAS')
+                AND 	A.GRP_NO = #{grpNo}
+                AND 	A.USER_ID = <include refid="CommonV65.selectMapUserId" />
+                UNION ALL
+                SELECT
+                    A.UNIQ_ID, IFNULL(NULLIF(B.DBMS_NM, ''), A.ITEM_ALIAS) AS ITEM_NAME, A.DEV_PERF,
+                    IFNULL(A.XPOINT, 950) AS XPOINT, IFNULL(A.YPOINT, 650) AS YPOINT,
+                    A.ITEM_NO, A.GRP_NO, A.MNG_NO, A.DEV_KIND1, A.DEV_KIND2, A.USR_KIND,
+                    IFNULL(A.ITEM_SIZE, 3) AS ITEM_SIZE,
+                    CONCAT(B.DEV_IP, ':', B.DBMS_PORT) AS DEV_IP,
+                    IFNULL(A.ITEM_ALIAS, B.DBMS_NM) AS ITEM_ALIAS,
+                    IFNULL(A.FONT_SIZE, 0) AS FONT_SIZE,
+                    0 AS ENG_NO, A.EVT_TYPE,
+                    0 AS CHILD_CNT,
+                    A.TEMP1, A.TEMP2, A.TEMP3,
+                    A.USER_CONTENT,
+                    A.SHOW_LABEL,
+                    NULL AS DYN_INFO,
+                    '' AS LOCATION,
+                    0 AS ICMP_POLL,
+                    A.ITEM_CONF
+                FROM
+                CM_TOPO_ITEM A,( SELECT A.DEV_IP, B.* FROM CM_DEV10 A, NT_SVR_DBMS B WHERE A.MNG_NO = B.MNG_NO) B
+                WHERE	A.MNG_NO = B.DBMS_NO
+                AND 	A.DEV_KIND1 IN ('DBMS')
+                AND 	A.GRP_NO = #{grpNo}
+                AND 	A.USER_ID = <include refid="CommonV65.selectMapUserId" />
+        ) TBITM
+        LEFT OUTER JOIN (
+              SELECT USER_ID, ITEM_NO, MNG_NO, EVT_LEVEL
+                    FROM (
+                        SELECT
+                            A.USER_ID,
+                            A.ITEM_NO,
+                            CASE
+                                WHEN B.SRC_TYPE = 'AP' AND C.SHOW_AP_EVENT = 0 THEN 0
+                                WHEN B.SRC_TYPE = 'VSVR' AND C.SHOW_VM_EVENT = 0 THEN 0
+                                WHEN SUM(IF(PROGRESS_STATE = 'A', 1, 0)) <![CDATA[ > ]]> 0 THEN -1
+                                WHEN SUM(IF(PROGRESS_STATE = 'W', 1, 0)) <![CDATA[ > ]]> 0 THEN -2
+                                ELSE IFNULL(MAX(B.EVT_LEVEL), 0) + 1
+                            END AS EVT_LEVEL,
+                            CASE
+                                WHEN SUM(IF(PROGRESS_STATE = 'A', 1, 0)) = COUNT(B.EVT_TYPE) THEN -1
+                                WHEN SUM(CASE B.EVT_TYPE WHEN 1 THEN 1 WHEN 2 THEN 1 WHEN 4 THEN 0 ELSE 1 END) <![CDATA[ >= ]]> 2 THEN 5
+                                WHEN SUM(CASE B.EVT_TYPE WHEN 1 THEN 1 WHEN 4 THEN 4 END) = 5 THEN 1
+                                ELSE SUM(CASE IFNULL(B.EVT_TYPE, 0) WHEN 0 THEN 0 WHEN 1 THEN 1 WHEN 2 THEN 2 WHEN 4 THEN 4 ELSE 3 END)
+                            END AS EVT_TYPE,
+                            A.MNG_NO
+                        FROM CM_TOPO_ITEM A
+                        INNER JOIN (
+                                    SELECT
+                                        SRC_MNG_NO AS MNG_NO,
+                                        CASE
+                                            WHEN SRC_TYPE = 'L4' THEN 'DEV'
+                                            WHEN SRC_TYPE = 'SVC' AND B.CODE = 'TCP_01'  THEN 'DEV'
+                                            WHEN SRC_TYPE = 'SVC' AND B.CODE = 'TCP_02'  THEN 'SVR'
+                                            ELSE SRC_TYPE
+                                        END SRC_TYPE,
+                                        B.EVT_LEVEL,
+                                        CASE
+                                            A.EVT_CD WHEN 'ICMP_01' THEN 1
+                                            WHEN 'PERF_11' THEN 2
+                                            WHEN 'TCP_01' THEN 4
+                                            ELSE 3
+                                        END AS EVT_TYPE,
+                                        PROGRESS_STATE,
+                                        NULL AS FMS_SEQ_NO
+                                    FROM
+                                        TB_COM_PROFILE PRO,
+                                        TB_COM_EVTCODE A,
+                                        CM_EVT B
+                                    WHERE PRO.SYSTEM_CD = A.SYSTEM_CD
+                                        AND PRO.PROFILE_NO = A.PROFILE_NO
+                                        AND A.PROFILE_NO = B.PROFILE_NO
+                                        and A.EVT_CD = B.CODE
+                                        AND B.SRC_TYPE NOT IN ('GRP', 'SYSLOG', 'TRAP','RTU', 'IF')
+                                        AND B.STATUS = 'C'
+                                        AND (B.PROGRESS_STATE IS NULL OR B.PROGRESS_STATE != 'S')
+                                UNION ALL
+                                    SELECT DISTINCT
+                                        C.MNG_NO,
+                                        'DEV' SRC_TYPE,
+                                        B.EVT_LEVEL,
+                                        CASE
+                                            A.EVT_CD WHEN 'PERF_11' THEN 2
+                                            ELSE 3
+                                        END AS EVT_TYPE,
+                                        PROGRESS_STATE,
+                                        NULL AS FMS_SEQ_NO
+                                    FROM
+                                        CM_TOPO_ITEM I1,
+                                        TB_COM_PROFILE PRO,
+                                        TB_COM_EVTCODE A,
+                                        CM_EVT B,
+                                        CM_DEV10 C,
+                                        CM_DEV20 D
+                                    WHERE I1.MNG_NO = C.MNG_NO
+                                        AND PRO.SYSTEM_CD = A.SYSTEM_CD
+                                        AND PRO.PROFILE_NO = A.PROFILE_NO
+                                        AND A.PROFILE_NO = B.PROFILE_NO
+                                        AND A.EVT_CD = B.CODE
+                                        AND B.SRC_MNG_NO = C.MNG_NO
+                                        AND C.MNG_NO = D.MNG_NO
+                                        AND B.SRC_TYPE = 'IF'
+                                        AND B.STATUS = 'C'
+                                        AND (B.PROGRESS_STATE IS NULL OR B.PROGRESS_STATE != 'S')
+                                        AND B.SRC_IDX = D.IF_IDX
+                                UNION ALL
+                                    SELECT
+                                        B.MNG_NO,
+                                        B.DEV_KIND1 AS SRC_TYPE,
+                                        A.EVT_LEVEL,
+                                        3 EVT_TYPE,
+                                        PROGRESS_STATE,
+                                        NULL AS FMS_SEQ_NO
+                                    FROM
+                                        CM_EVT A,
+                                        CM_DEV10 B
+                                    WHERE A.SRC_MNG_NO = B.MNG_NO
+                                        AND A.SRC_TYPE IN ('SYSLOG', 'TRAP')
+                                        AND A.STATUS = 'C'
+                                        AND (A.PROGRESS_STATE IS NULL OR A.PROGRESS_STATE != 'S')
+                                UNION ALL
+                                    SELECT
+                                        0 MNG_NO,
+                                        EVT_UNIT_TYPE,
+                                        CAST(EVT_LEVEL AS INTEGER),
+                                        3 EVT_TYPE,
+                                        PROGRESS_STATE,
+                                        NULL AS FMS_SEQ_NO
+                                    FROM CM_EVT_MSPP
+                                    WHERE EVT_STATUS = 'C'
+                                    AND (PROGRESS_STATE IS NULL OR PROGRESS_STATE != 'S')
+                                UNION ALL
+                                    SELECT
+                                        C.MNG_NO,
+                                        'SENSOR' SRC_TYPE,
+                                        B.EVT_LEVEL,
+                                        3 EVT_TYPE,
+                                        PROGRESS_STATE,
+                                        D.FMS_SEQ_NO AS FMS_SEQ_NO
+                                    FROM
+                                        TB_COM_PROFILE PRO,
+                                        TB_COM_EVTCODE A,
+                                        CM_EVT B,
+                                        CM_DEV10 C,
+                                        CM_FMS_SENSOR D
+                                    WHERE PRO.SYSTEM_CD = A.SYSTEM_CD
+                                        AND PRO.PROFILE_NO = A.PROFILE_NO
+                                        AND A.EVT_CD = B.CODE
+                                        AND A.PROFILE_NO = B.PROFILE_NO
+                                        AND B.SRC_MNG_NO = C.MNG_NO
+                                        AND C.MNG_NO = D.MNG_NO
+                                        AND B.SRC_IDX = D.FMS_SEQ_NO
+                                        AND B.SRC_TYPE IN ('RTU', 'UPS')
+                                        AND B.STATUS = 'C'
+                                        AND (B.PROGRESS_STATE IS NULL OR B.PROGRESS_STATE != 'S')
+                            ) B
+                           ON IF(A.BACK_MNG_NO =-1, A.MNG_NO,   A.BACK_MNG_NO) = B.MNG_NO
+                           AND IFNULL(A.TEMP1, 'X') = IFNULL(B.FMS_SEQ_NO, 'X')
+                        INNER JOIN CM_TOPO_USER C
+                           ON A.USER_ID = C.USER_ID
+                        WHERE A.DEV_KIND1 NOT IN ('GRP', 'SUB', 'RACK')
+                        GROUP BY A.USER_ID, A.ITEM_NO, A.MNG_NO, A.TEMP1 ) TB
+              UNION ALL
+              SELECT CTI.USER_ID, CTI.ITEM_NO, A.RACK_NO AS MNG_NO,
+                     CASE
+                        WHEN SUM(IF(PROGRESS_STATE='A', 1, 0)) > 0 THEN -1
+                        WHEN SUM(IF(PROGRESS_STATE='W', 1, 0)) > 0 THEN -2
+                        ELSE IFNULL(MAX(B.EVT_LEVEL), 0) + 1
+                     END AS EVT_LEVEL
+              FROM S_CM_RACK_CONF A
+              INNER JOIN CM_TOPO_ITEM CTI
+              ON A.RACK_NO = CTI.MNG_NO
+              AND CTI.DEV_KIND1 = 'RACK'
+              LEFT OUTER JOIN (
+                                SELECT   CASE
+                                              WHEN SRC_TYPE IN ('SVC') THEN
+                                                  ( SELECT  MIN(AA.MNG_NO)
+                                                    FROM    TB_COM_SERVICE AA
+                                                    WHERE   AA.MNG_NO = B.SRC_MNG_NO
+                                                      AND   AA.SVC_NO = B.SRC_SVR_NO)
+                                             ELSE SRC_MNG_NO
+                                          END MNG_NO,
+                                          CASE
+                                              WHEN SRC_TYPE IN ('IF', 'L4', 'SYSLOG', 'TRAP') THEN 'DEV'
+                                              WHEN SRC_TYPE = 'SVC' THEN 'SVR'
+                                              ELSE SRC_TYPE
+                                          END SRC_TYPE,
+                                          B.EVT_LEVEL,
+                                          PROGRESS_STATE
+                                FROM TB_COM_EVTCODE A, CM_EVT B
+                                WHERE A.EVT_CD = B.CODE
+                                  AND A.PROFILE_NO = B.PROFILE_NO
+                                  AND B.SRC_TYPE NOT IN ('GRP', 'FMS')
+                                  AND B.STATUS = 'C'
+                                  AND (B.PROGRESS_STATE IS NULL OR B.PROGRESS_STATE != 'S')
+                              ) B
+              ON A.MNG_NO = B.MNG_NO
+              GROUP BY CTI.USER_ID, CTI.ITEM_NO, A.MNG_NO
+        ) TBEVT
+        ON TBITM.ITEM_NO = TBEVT.ITEM_NO
+        AND TBITM.MNG_NO = TBEVT.MNG_NO
+
+    </sql>
+</mapper>

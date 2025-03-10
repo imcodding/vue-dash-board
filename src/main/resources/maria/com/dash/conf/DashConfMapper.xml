@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dash.conf.persistence.DashConfMapper">
+
+    <!-- 조회 -->
+    <select id="selectConf" resultType="CamelHashMap">
+        SELECT
+            user_id,
+            dash_grp_key,
+            dash_key,
+            sort,
+            `value`,
+            etc
+        FROM cm_dash_conf
+        WHERE user_id = #{userId}
+        AND dash_grp_key = #{dashGrpKey}
+        AND dash_key = #{dashKey}
+    </select>
+
+    <!-- 목록 조회 -->
+    <select id="selectConfList" resultType="CamelHashMap">
+        SELECT
+            user_id,
+            dash_grp_key,
+            dash_key,
+            sort,
+            `value`,
+            etc
+        FROM cm_dash_conf
+        WHERE user_id = #{userId}
+        <if test="_parameter.containsKey('dashGrpKey')">
+            AND dash_grp_key = #{dashGrpKey}
+        </if>
+    </select>
+
+    <!-- 추가 -->
+    <insert id="insertConf">
+        INSERT INTO cm_dash_conf
+        (user_id, dash_grp_key, dash_key, sort, `value`, etc)
+        VALUES(#{userId}, #{dashGrpKey}, #{dashKey}, #{sort}, #{value}, #{etc})
+    </insert>
+
+    <!-- 수정 -->
+    <update id="updateConf">
+        UPDATE cm_dash_conf
+        SET
+            sort = #{sort},
+            `value` = #{value},
+            etc = #{etc}
+        WHERE
+            user_id = #{userId}
+            AND dash_grp_key = #{dashGrpKey}
+            AND dash_key = #{dashKey}
+    </update>
+
+    <!-- 삭제 -->
+    <delete id="deleteDashConf">
+        DELETE FROM cm_dash_conf
+        WHERE user_id=#{userId}
+        AND dash_grp_key=#{dashGrpKey}
+        <if test="_parameter.containsKey('dashKey')">
+            AND dash_key=#{dashKey}
+        </if>
+    </delete>
+
+    <!-- insert update -->
+    <update id="insertUpdateConf">
+        INSERT INTO cm_dash_conf(user_id, dash_grp_key, dash_key, value)
+        VALUES(#{userId}, 'DASH_MAIN', #{dashKey}, #{value})
+        ON DUPLICATE KEY
+        UPDATE value = #{value}
+    </update>
+
+    <!-- insert update -->
+    <update id="insertUpdateConfList">
+        <foreach collection="list" item="item">
+            INSERT INTO cm_dash_conf(user_id, dash_grp_key, dash_key, value)
+            VALUES(#{userId}, 'DASH_MAIN', #{item.dashKey}, #{item.value})
+            ON DUPLICATE KEY
+            UPDATE value = #{item.value};
+        </foreach>
+    </update>
+</mapper>

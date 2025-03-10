@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="_이어_1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 31.93 31.93">
+<defs>
+<style>
+  .cls-1{fill:#091339;stroke:#091339;stroke-miterlimit:10;stroke-width:.97px;}
+  .cls-2{fill:#ffffff;}
+</style>
+</defs>
+<path class="cls-1" d="M0,.49H27.5c2.18,0,3.95,1.74,3.95,3.89V28.54c0,1.6-1.32,2.9-2.95,2.9H0"/>
+<polygon class="cls-2" points="7.73 6.98 13.31 6.98 23.71 15.82 13.31 24.96 7.73 24.96 18.14 15.82 7.73 6.98"/>
+</svg>

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dash.widget.confInfo.persistence.WidgetConfInfoMapper">
+
+    <select id="selectConfInfoItem" resultType="CamelHashMap">
+        SELECT COUNT(*) AS cnt
+        FROM cm_dev10 d, nt_cfg_group g
+        WHERE d.grp_no = g.grp_no
+        AND g.grp_no IN <include refid="Common.selectAuthGrpNos"/>
+        AND d.dev_kind2 IN (
+            <foreach collection="devKind2List" item="devKind2" separator=",">
+                #{devKind2}
+            </foreach>
+        )
+    </select>
+
+    <select id="selectDevKindList" resultType="CamelHashMap">
+        SELECT
+            code_id ,
+            code_cd ,
+            code_nm
+        FROM tb_com_code
+        WHERE p_code_id = (
+            SELECT code_id
+            FROM tb_com_code
+            WHERE code_cd = 'DEV'
+            AND p_code_id = (
+                SELECT code_id
+                FROM tb_com_code
+                WHERE code_cd = 'DEV_TYPE'
+            )
+        )
+    </select>
+</mapper>

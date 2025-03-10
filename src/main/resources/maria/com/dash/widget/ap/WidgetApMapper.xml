@@ -1,0 +1,346 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dash.widget.ap.persistence.WidgetApMapper">
+
+    <sql id="sqlWnmsFilter">
+        <if test="_parameter.containsKey('sApGrpNoList') and sApGrpNoList.size() > 0">
+            AND B.GRP_NO IN (<foreach collection="sApGrpNoList" item="apGrpNo" separator=",">#{apGrpNo}</foreach>)
+        </if>
+        <if test="_parameter.containsKey('sVendorList') and sVendorList.size() > 0">
+            AND A.VENDOR IN (<foreach collection="sVendorList" item="vendor" separator=",">#{vendor}</foreach>)
+        </if>
+        <if test="_parameter.containsKey('sSsidList') and sSsidList.size() > 0">
+            AND B.AP_NO IN (SELECT AP_NO FROM CM_DEV_AP_SUB WHERE AP_SSID IN (<foreach collection="sSsidList" item="ssid" separator=",">#{ssid}</foreach>))
+        </if>
+        <if test="_parameter.containsKey('sApStatusList') and sApStatusList.size() > 0">
+            AND B.AP_STATUS IN (<foreach collection="sApStatusList" item="apStatus" separator=",">IF(#{apStatus}='UP', 1, 0)</foreach>)
+        </if>
+        <if test="_parameter.containsKey('sModelList') and sModelList.size() > 0">
+            AND A.MODEL IN (<foreach collection="sModelList" item="model" separator=",">#{model}</foreach>)
+        </if>
+    </sql>
+
+    <sql id="selectApList">
+        SELECT  B.*
+        FROM    CM_DEV10 A, CM_DEV_AP B
+        WHERE   A.DEV_KIND2 IN ('AP_CONTROLLER', 'AP_ALONE')
+        AND     A.MNG_NO = B.MNG_NO
+        <include refid="sqlWnmsFilter"/>
+    </sql>
+
+    <!-- AP별 장애시간 TopN -->
+    <select id="selectEvtTimeTopByAp" resultType="CamelHashMap">
+        SELECT  B.AP_NO, B.AP_NAME, SUM(A.SUM_SEC) AS EVT_SUM_SEC
+        FROM    CM_EVT A, (<include refid="selectApList"/>) B
+        WHERE   A.YYYYMMDD BETWEEN #{date1} AND #{date2}
+        AND     CONCAT(A.YYYYMMDD, A.HHMMSS) BETWEEN CONCAT(#{date1},#{time1},'00') AND CONCAT(#{date2},#{time2},'59')
+        AND     A.SRC_MNG_NO = B.MNG_NO
+        AND     A.SRC_IDX = B.AP_NO
+        GROUP BY B.AP_NO, B.AP_NAME
+        ORDER BY EVT_SUM_SEC DESC
+        <if test="_parameter.containsKey('topN')">
+            <bind name="topN" value="@java.lang.Integer@valueOf(topN)"/>
+            LIMIT #{topN}
+        </if>
+    </select>
+
+    <!-- 전체 클라이언트 추이 -->
+    <select id="selectClientAnalysis" resultType="CamelHashMap">
+        SELECT  <choose>
+        <when test="tableCnt == 2">CAST(C.YMDHMS AS DATETIME) AS DT,</when>
+        <when test="tableCnt == 3">CAST(C.YYYYMMDD AS DATETIME) AS DT,</when>
+        <otherwise>CAST(DATE_FORMAT(C.YMDHMS, '%Y%m%d%H0000') AS DATETIME) AS DT,</otherwise>
+    </choose>
+        DATE_FORMAT(C.YMDHMS, '%Y-%m-%d %H:%m') AS YMDHMS,
+        COUNT(DISTINCT CONN_MAC) AS CONN_CNT,
+        B.AP_NAME AS DEV_NAME
+        FROM    (<include refid="selectApList"/>) B, CM_DEV_AP_CONN_LOG_#{tableCnt} C
+        WHERE   B.AP_NO = C.AP_NO
+        AND     C.YYYYMMDD BETWEEN #{date1} AND #{date2}
+        <choose>
+            <when test="tableCnt == 2">
+                AND C.YMDHMS BETWEEN CONCAT(#{date1},#{time1},'00') AND CONCAT(#{date2},#{time2},'59')
+                GROUP BY C.YMDHMS
+            </when>
+            <when test="tableCnt == 3">
+                GROUP BY C.YYYYMMDD
+            </when>
+            <otherwise>
+                AND C.YMDHMS BETWEEN CONCAT(#{date1},#{time1},'00') AND CONCAT(#{date2},#{time2},'59')
+                GROUP BY SUBSTRING(C.YMDHMS,1,10)
+            </otherwise>
+        </choose>
+        ORDER BY DT
+    </select>
+
+    <!-- 시간대별 최대 동접자 -->
+    <select id="selectMaxCCUByTime" resultType="CamelHashMap">
+        SELECT  CAST(DATE_FORMAT(T.DT, '%Y%m%d%H0000') AS DATETIME) AS DT,
+        DATE_FORMAT(T.DT, '%Y-%m-%d %H:%m') AS YMDHMS,
+        MAX(CONN_CNT) AS CONN_CNT,
+        B.AP_NAME AS DEV_NAME
+        FROM    (
+        SELECT  <choose>
+        <when test="tableCnt == 2">CAST(C.YMDHMS AS DATETIME) AS DT,</when>
+        <when test="tableCnt == 3">CAST(C.YYYYMMDD AS DATETIME) AS DT,</when>
+        <otherwise>CAST(DATE_FORMAT(C.YMDHMS,'%Y%m%d%H0000') AS DATETIME) AS DT,</otherwise>
+    </choose>
+        COUNT(DISTINCT CONN_MAC) AS CONN_CNT
+        FROM    (<include refid="selectApList"/>) B, CM_DEV_AP_CONN_LOG_#{tableCnt} C
+        WHERE   B.AP_NO = C.AP_NO
+        AND     C.YYYYMMDD BETWEEN #{date1} AND #{date2}
+        <choose>
+            <when test="tableCnt == 3">
+                GROUP BY C.YYYYMMDD
+            </when>
+            <otherwise>
+                AND C.YMDHMS BETWEEN CONCAT(#{date1},#{time1},'00') AND CONCAT(#{date2},#{time2},'59')
+                GROUP BY C.YMDHMS
+            </otherwise>
+        </choose>
+        ) T
+        GROUP BY DT
+    </select>
+
+    <!-- 트래픽 사용량 추이 -->
+    <select id="selectTrafficAnalysis" resultType="CamelHashMap">
+        SELECT  <choose>
+        <when test="tableCnt == 3">CAST(C.YYYYMMDD AS DATETIME) AS DT,</when>
+        <otherwise>CAST(C.YMDHMS AS DATETIME) AS DT,</otherwise>
+    </choose>
+        DATE_FORMAT(C.YMDHMS, '%Y-%m-%d %H:00') AS YMDHMS,
+        B.AP_NAME AS DEV_NAME,
+        <choose>
+            <when test="tableCnt == 1">
+                ROUND(AVG(C.RX_BYTE), 2) AS RX_BYTE,
+                ROUND(AVG(C.TX_BYTE), 2) AS TX_BYTE,
+                ROUND(AVG(C.RX_BYTE + C.TX_BYTE), 2) AS BYTE
+            </when>
+            <otherwise>
+                ROUND(AVG(C.AVG_RX_BYTE), 2) AS RX_BYTE,
+                ROUND(AVG(C.AVG_TX_BYTE), 2) AS TX_BYTE,
+                ROUND(AVG(C.AVG_RX_BYTE + C.AVG_TX_BYTE), 2) AS BYTE
+            </otherwise>
+        </choose>
+        FROM    CM_DEV10 A, CM_DEV_AP B, CM_DEV_AP_PERF_#{tableCnt} C
+        WHERE   A.DEV_KIND2 IN ('AP_CONTROLLER', 'AP_ALONE')
+        AND     A.MNG_NO = B.MNG_NO
+        AND     B.AP_NO = C.AP_NO
+        AND     C.YYYYMMDD BETWEEN CAST(#{date1} AS INT) AND CAST(#{date2} AS INT)
+        AND     C.AP_SUB_NO = 0
+        <choose>
+            <when test="tableCnt == 3">
+                GROUP BY C.YYYYMMDD
+            </when>
+            <otherwise>
+                AND     C.YMDHMS BETWEEN CAST(CONCAT(#{date1},#{time1},'00') AS INT) AND CAST(CONCAT(#{date2},#{time2},'59') AS INT)
+                GROUP BY C.YMDHMS
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 시간대별 최대 트래픽 -->
+    <select id="selectMaxTrafficByTime" resultType="CamelHashMap">
+        <choose>
+            <when test="tableCnt == 1">
+                SELECT
+                    CAST(ymdhms AS datetime) AS DT,
+                    DATE_FORMAT(ymdhms, '%Y-%m-%d %H:00') AS ymdhms,
+                    ROUND(MAX(rx_byte), 2) AS rx_byte,
+                    ROUND(MAX(tx_byte), 2) AS tx_byte,
+                    ROUND(MAX(rx_byte + tx_byte), 2) AS byte,
+                    a.ap_name AS dev_name
+                FROM cm_dev_ap a
+                INNER JOIN cm_dev_ap_perf_1 p ON a.ap_no = p.ap_no AND p.ap_sub_no = 0
+                WHERE yyyymmdd BETWEEN CAST(#{date1} AS INT) AND CAST(#{date2} AS INT)
+                AND ymdhms BETWEEN CAST(CONCAT(#{date1},#{time1},'00') AS INT) AND CAST(CONCAT(#{date2},#{time2},'59') AS INT)
+                GROUP BY ymdhms
+            </when>
+            <otherwise>
+                SELECT
+                    CAST(ymdhms AS DATETIME) AS DT,
+                    DATE_FORMAT(ymdhms, '%Y-%m-%d %H:00') AS ymdhms,
+                    ROUND(MAX(max_rx_byte), 2) AS rx_byte,
+                    ROUND(MAX(max_tx_byte), 2) AS tx_byte,
+                    ROUND(MAX(max_rx_byte + max_tx_byte), 2) AS byte,
+                    a.ap_name AS dev_name
+                FROM cm_dev_ap a
+                INNER JOIN cm_dev_ap_perf_2 p ON a.ap_no = p.ap_no AND p.ap_sub_no = 0
+                WHERE yyyymmdd BETWEEN CAST(#{date1} AS INT) AND CAST(#{date2} AS INT)
+                AND ymdhms BETWEEN CAST(CONCAT(#{date1},#{time1},'00') AS INT) AND CAST(CONCAT(#{date2},#{time2},'59') AS INT)
+                GROUP BY ymdhms
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 클라이언트별 트래픽 사용량 TopN -->
+    <select id="selectHighTrafficByClient" resultType="CamelHashMap">
+        SELECT  CONCAT(B.CONN_NAME,'(', B.CONN_MAC,')') AS CONN_NAME,
+        <choose>
+            <when test="tableCnt == 1">
+                ROUND(AVG(CONN_RX_BYTE), 2) AS RX_BYTE,
+                ROUND(AVG(CONN_TX_BYTE), 2) AS TX_BYTE,
+                ROUND(AVG(CONN_RX_BYTE +CONN_TX_BYTE), 2) AS BYTE
+            </when>
+            <otherwise>
+                ROUND(AVG(AVG_CONN_RX_BYTE), 2) AS RX_BYTE,
+                ROUND(AVG(AVG_CONN_TX_BYTE), 2) AS TX_BYTE,
+                ROUND(AVG(AVG_CONN_RX_BYTE + AVG_CONN_TX_BYTE), 2) AS BYTE
+            </otherwise>
+        </choose>
+        FROM    (<include refid="selectApList"/>) A, CM_DEV_AP_CONN_LOG_#{tableCnt} B
+        WHERE   A.AP_NO = B.AP_NO
+        AND     B.YYYYMMDD BETWEEN CAST(#{date1} AS INT) AND CAST(#{date2} AS INT)
+        <if test="tableCnt != 3">
+            AND B.YMDHMS BETWEEN CAST(CONCAT(#{date1},#{time1},'00') AS INT) AND CAST(CONCAT(#{date2},#{time2},'59') AS INT)
+        </if>
+        GROUP BY B.CONN_MAC
+        ORDER BY BYTE DESC
+        <if test="_parameter.containsKey('topN')">
+            <bind name="topN" value="@java.lang.Integer@valueOf(topN)"/>
+            LIMIT #{topN}
+        </if>
+    </select>
+
+    <!-- AP별 트래픽 사용량 TopN -->
+    <select id="selectHighTrafficByAp" resultType="CamelHashMap">
+        SELECT
+            a.ap_no,
+            a.ap_name,
+        <choose>
+            <when test="tableCnt == 1">
+                ROUND(AVG(b.rx_byte), 2) AS rx_byte,
+                ROUND(AVG(b.tx_byte), 2) AS tx_byte,
+                ROUND(AVG(b.rx_byte + b.tx_byte), 2) AS byte
+            </when>
+            <otherwise>
+                ROUND(AVG(b.avg_rx_byte), 2) AS rx_byte,
+                ROUND(AVG(b.avg_tx_byte), 2) AS tx_byte,
+                ROUND(AVG(b.avg_rx_byte + b.avg_tx_byte), 2) AS byte
+            </otherwise>
+        </choose>
+        FROM    (<include refid="selectApList"/>) A
+        INNER JOIN cm_dev_ap_perf_#{tableCnt} b ON a.ap_no = b.ap_no AND b.ap_sub_no = 0
+        WHERE b.yyyymmdd BETWEEN CAST(#{date1} AS INT) AND CAST(#{date2} AS INT)
+        <if test="tableCnt != 3">
+            AND b.ymdhms BETWEEN CAST(CONCAT(#{date1}, #{time1}, '00') AS INT) AND CAST(CONCAT(#{date2}, #{time2}, '59') AS INT)
+        </if>
+        GROUP BY a.ap_no, a.ap_name
+        ORDER BY byte DESC
+        <if test="_parameter.containsKey('topN')">
+            <bind name="topN" value="@java.lang.Integer@valueOf(topN)"/>
+            LIMIT #{topN}
+        </if>
+    </select>
+
+    <!-- AP별 트래픽 사용량 LowN -->
+    <select id="selectLowTrafficByAp" resultType="CamelHashMap">
+        SELECT
+            a.ap_no,
+            a.ap_name,
+        <choose>
+            <when test="tableCnt == 1">
+                ROUND(AVG(b.rx_byte), 2) AS rx_byte,
+                ROUND(AVG(b.tx_byte), 2) AS tx_byte,
+                ROUND(AVG(b.rx_byte + b.tx_byte), 2) AS byte
+            </when>
+            <otherwise>
+                ROUND(AVG(b.avg_rx_byte), 2) AS rx_byte,
+                ROUND(AVG(b.avg_tx_byte), 2) AS tx_byte,
+                ROUND(AVG(b.avg_rx_byte + b.avg_tx_byte), 2) AS byte
+            </otherwise>
+        </choose>
+        FROM    (<include refid="selectApList"/>) A
+        INNER JOIN cm_dev_ap_perf_#{tableCnt} b ON a.ap_no = b.ap_no AND b.ap_sub_no = 0
+        WHERE b.yyyymmdd BETWEEN CAST(#{date1} AS INT) AND CAST(#{date2} AS INT)
+        <if test="tableCnt != 3">
+            AND b.ymdhms BETWEEN CAST(CONCAT(#{date1}, #{time1}, '00') AS INT) AND CAST(CONCAT(#{date2}, #{time2}, '59') AS INT)
+        </if>
+        GROUP BY a.ap_no, a.ap_name
+        ORDER BY byte ASC
+        <if test="_parameter.containsKey('lowN')">
+            <bind name="lowN" value="@java.lang.Integer@valueOf(lowN)"/>
+            LIMIT #{lowN}
+        </if>
+    </select>
+
+    <!-- AP별 클라이언트 TopN -->
+    <select id="selectHighClientByAp" resultType="CamelHashMap">
+        SELECT
+            a.ap_no,
+            a.ap_name,
+            COUNT(DISTINCT b.conn_mac) AS conn_cnt
+        FROM    (<include refid="selectApList"/>) a, cm_dev_ap_conn_log_${tableCnt} b
+        WHERE   a.ap_no = b.ap_no
+        AND     b.yyyymmdd BETWEEN CAST(#{date1} AS INT) AND CAST(#{date2} AS INT)
+        <if test="tableCnt != 3">
+            AND b.ymdhms BETWEEN CAST(CONCAT(#{date1}, #{time1}, '00') AS INT) AND CAST(CONCAT(#{date2}, #{time2}, '59') AS INT)
+        </if>
+        GROUP BY a.ap_no, a.ap_name
+        ORDER BY conn_cnt DESC
+        <if test="_parameter.containsKey('topN')">
+            <bind name="topN" value="@java.lang.Integer@valueOf(topN)"/>
+            LIMIT #{topN}
+        </if>
+    </select>
+
+    <!-- AP별 클라이언트 LowN -->
+    <select id="selectLowClientByAp" resultType="CamelHashMap">
+        SELECT
+            a.ap_no,
+            a.ap_name,
+            COUNT(DISTINCT b.conn_mac) AS conn_cnt
+        FROM    cm_dev_ap a, cm_dev_ap_conn_log_${tableCnt} b
+        WHERE   a.ap_no = b.ap_no
+        AND     b.yyyymmdd BETWEEN CAST(#{date1} AS INT) AND CAST(#{date2} AS INT)
+        <if test="tableCnt != 3">
+            AND b.ymdhms BETWEEN CAST(CONCAT(#{date1}, #{time1}, '00') AS INT) AND CAST(CONCAT(#{date2}, #{time2}, '59') AS INT)
+        </if>
+        GROUP BY a.ap_no, a.ap_name
+        ORDER BY conn_cnt ASC
+        <if test="_parameter.containsKey('lowN')">
+            <bind name="lowN" value="@java.lang.Integer@valueOf(lowN)"/>
+            LIMIT #{lowN}
+        </if>
+    </select>
+
+    <!-- OS별 클라이언트 접속 현황 -->
+    <select id="selectClientStateByOs" resultType="CamelHashMap">
+        SELECT  CONN_OS_TYPE,
+                COUNT(DISTINCT CONN_MAC) CONN_CNT
+        FROM    CM_DEV_AP_CONN_LOG
+        WHERE   YYYYMMDD BETWEEN CAST(#{date1} AS INT) AND CAST(#{date2} AS INT)
+        AND     YMDHMS BETWEEN CAST(CONCAT(#{date1},#{time1},'00') AS INT) AND CAST(CONCAT(#{date2},#{time2},'59') AS INT)
+        GROUP BY CONN_OS_TYPE
+        ORDER BY CONN_CNT DESC
+    </select>
+
+    <!-- OS별 트래픽 사용 현황 -->
+    <select id="selectTrafficStateByOs" resultType="CamelHashMap">
+        SELECT  CONN_OS_TYPE,
+                ROUND(AVG(CONN_RX_BYTE), 2) AS RX_BYTE,
+                ROUND(AVG(CONN_TX_BYTE), 2) AS TX_BYTE,
+                ROUND(AVG(CONN_RX_BYTE + CONN_TX_BYTE), 2) AS BYTE
+        FROM    CM_DEV_AP_CONN_LOG
+        WHERE   YYYYMMDD BETWEEN CAST(#{date1} AS INT) AND CAST(#{date2} AS INT)
+        AND     YMDHMS BETWEEN CAST(CONCAT(#{date1},#{time1},'00') AS INT) AND CAST(CONCAT(#{date2},#{time2},'59') AS INT)
+        GROUP BY CONN_OS_TYPE
+        ORDER BY BYTE DESC
+    </select>
+
+    <!-- 접속 수량 -->
+    <select id="selectApStatus" resultType="CamelHashMap">
+        WITH curConnCnt AS (
+	      SELECT DISTINCT(CONN_ID) FROM cm_dev_ap_conn_log_last
+        )
+      SELECT
+        SUM(if(aps.ap_status = 1, 1,0)) AS cur_ap_cnt,
+        SUM(if(aps.ap_status = 1, 1,0)) + SUM(if(aps.ap_status = 2, 1,0)) AS total_ap_cnt,
+        (SELECT COUNT(conn_id) FROM curConnCnt) AS cur_conn_cnt
+      FROM cm_dev_ap_status aps
+      INNER JOIN cm_dev_ap ap ON aps.mng_no = ap.mng_no AND aps.ap_no = ap.ap_no
+      WHERE aps.ap_status IN (1,2)
+      AND ap.grp_no IS NOT NULL
+    </select>
+
+</mapper>

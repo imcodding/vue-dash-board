@@ -1,0 +1,510 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dash.widget.nms.persistence.WidgetNmsMapper">
+
+    <!-- CPU, Memory, 온도, 응답시간, 세션 성능 TopN -->
+    <select id="selectHighPerfByDev" resultType="CamelHashMap">
+        SELECT
+            A.MNG_NO,
+            A.GRP_NAME,
+            IFNULL(NULLIF(A.USER_DEV_NAME,''), A.DEV_NAME) AS DEV_NAME,
+            A.DEV_IP,
+            A.DEV_KIND1,
+            A.DEV_KIND2
+            <choose>
+                <when test="itemType == 'CPU'">
+                    ,B.CPU_VAL AS PERF_VAL
+                </when>
+                <when test="itemType == 'MEM'">
+                    ,B.MEM_VAL AS PERF_VAL
+                </when>
+                <when test="itemType == 'TEMP'">
+                    ,B.TEMP_VAL AS PERF_VAL
+                </when>
+                <when test="itemType == 'RESP'">
+                    ,B.RESP_VAL AS PERF_VAL
+                </when>
+                <when test="itemType == 'SESSION'">
+                    ,B.VPN_SESSION_COUNT AS PERF_VAL
+                </when>
+                <otherwise>
+                    ,B.CPU_VAL AS PERF_VAL
+                </otherwise>
+            </choose>
+        FROM    (<include refid="Common.selectDevListForGrpTab"/>) A, CM_DEV_PERF_LAST B
+        WHERE   A.MNG_NO = B.MNG_NO
+        AND     B.LAST_UPD >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 15 MINUTE)
+        ORDER BY PERF_VAL DESC
+        <if test="_parameter.containsKey('topN')">
+            <bind name="topN" value="@java.lang.Integer@valueOf(topN)"/>
+            LIMIT #{topN}
+        </if>
+    </select>
+
+    <!-- Traffic TopN -->
+    <select id="selectHighTrafficByDev" resultType="CamelHashMap">
+        SELECT  A.GRP_NAME,
+            CONCAT(A.MNG_NO,'_',B.IF_IDX) AS UNIQ_KEY,
+            A.MNG_NO,
+            A.DEV_KIND1,
+            B.IF_IDX,
+            IFNULL(NULLIF(A.USER_DEV_NAME,''), A.DEV_NAME) AS DEV_NAME,
+            A.DEV_IP,
+            COALESCE(NULLIF(B.USER_IF_NAME,'') , NULLIF(B.IF_ALIAS,'') ,
+                <choose>
+                    <when test="_parameter.containsKey('isIfAbbr')">
+                        <include refid="selectIfAbbr" />
+                    </when>
+                    <otherwise>B.IF_NAME</otherwise>
+                </choose>
+            ) AS if_name,
+            B.IF_ALIAS,
+            C.AVG_INBPS AS INBPS,
+            C.AVG_OUTBPS AS OUTBPS,
+            C.AVG_INBPS+C.AVG_OUTBPS AS BPS,
+            C.INBPS_RATE AS INBPS_PER,
+            C.OUTBPS_RATE AS OUTBPS_PER,
+            C.INBPS_RATE+C.OUTBPS_RATE AS BPS_PER
+        FROM    (<include refid="Common.selectDevListForGrpTab"/> AND DEV_KIND1 = 'DEV') A
+        INNER JOIN CM_DEV20 B ON A.MNG_NO = B.MNG_NO
+        INNER JOIN CM_IF_PERF_LAST C ON A.MNG_NO = C.MNG_NO AND B.IF_IDX = C.IF_IDX
+        LEFT JOIN CM_IF_GROUP D ON A.GRP_NO = D.GRP_NO AND A.MNG_NO = D.MNG_NO AND B.IF_IDX = D.IF_IDX
+        WHERE C.LAST_UPD >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 15 MINUTE)
+        <if test="_parameter.containsKey('ifGrpNo') and ifGrpNo != 1">
+            AND D.GRP_NO = #{ifGrpNo}
+        </if>
+        <if test="_parameter.containsKey('ifInout')">
+        ORDER BY
+            <choose>
+                <when test="ifInout == 'SUM' or ifInout == 'IO'"> BPS DESC</when>
+                <when test="ifInout == 'IN'"> INBPS DESC</when>
+                <when test="ifInout == 'OUT'"> OUTBPS DESC</when>
+                <when test="ifInout == 'SUM_PER' or ifInout == 'IO_PER'"> BPS_PER DESC</when>
+                <when test="ifInout == 'IN_PER'"> INBPS_PER DESC</when>
+                <when test="ifInout == 'OUT_PER'"> OUTBPS_PER DESC</when>
+            </choose>
+        <if test="_parameter.containsKey('topN')">
+            <bind name="topN" value="@java.lang.Integer@valueOf(topN)"/>
+            LIMIT #{topN}
+        </if>
+        </if>
+    </select>
+
+    <!-- 회선그룹 Traffic TopN
+        회선그룹 조건설정이 있으므로 [필터] 기본그룹 미적용
+    -->
+    <select id="selectHighTrafficByIfGrp" resultType="CamelHashMap">
+        SELECT  A.GRP_NAME,
+            CONCAT(B.MNG_NO,'_',C.IF_IDX) AS UNIQ_KEY,
+            B.MNG_NO,
+            C.IF_IDX,
+            IFNULL(NULLIF(B.USER_DEV_NAME,''), B.DEV_NAME) AS DEV_NAME,
+            B.DEV_IP,
+            COALESCE(NULLIF(C.USER_IF_NAME,'') , NULLIF(C.IF_ALIAS,'') , C.IF_NAME) AS IF_NAME,
+            C.IF_ALIAS,
+            D.AVG_INBPS AS INBPS,
+            D.AVG_OUTBPS AS OUTBPS,
+            D.AVG_INBPS+D.AVG_OUTBPS AS BPS,
+            D.INBPS_RATE AS INBPS_PER,
+            D.OUTBPS_RATE AS OUTBPS_PER,
+            D.INBPS_RATE+D.OUTBPS_RATE AS BPS_PER
+        FROM    NT_CFG_GROUP A, CM_DEV10 B, CM_DEV20 C, CM_IF_PERF_LAST D, CM_IF_GROUP E
+        WHERE   B.MNG_NO = C.MNG_NO
+        AND     B.MNG_NO = D.MNG_NO
+        AND     C.IF_IDX = D.IF_IDX
+        AND     D.LAST_UPD >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 15 MINUTE)
+        AND     B.GRP_NO IN <include refid="Common.selectAuthGrpNos"/>
+        AND     A.GRP_NO = E.GRP_NO
+        AND     C.MNG_NO = E.MNG_NO
+        AND     C.IF_IDX = E.IF_IDX
+        AND     E.GRP_NO IN (SELECT SUB_NO FROM NT_CFG_GRP_LEAF WHERE GRP_TYPE = 8 AND GRP_NO = #{ifGrpNo})
+        ORDER BY
+        <choose>
+            <when test="ifInout == 'SUM' or ifInout == 'IO'"> BPS DESC</when>
+            <when test="ifInout == 'IN'"> INBPS DESC</when>
+            <when test="ifInout == 'OUT'"> OUTBPS DESC</when>
+            <when test="ifInout == 'SUM_PER' or ifInout == 'IO_PER'"> BPS_PER DESC</when>
+            <when test="ifInout == 'IN_PER'"> INBPS_PER DESC</when>
+            <when test="ifInout == 'OUT_PER'"> OUTBPS_PER DESC</when>
+        </choose>
+        <if test="_parameter.containsKey('topN')">
+            <bind name="topN" value="@java.lang.Integer@valueOf(topN)"/>
+            LIMIT #{topN}
+        </if>
+    </select>
+
+    <!-- 장비 성능 현황 -->
+    <select id="selectDevPerfChart" resultType="CamelHashMap">
+        SELECT
+            DATE_FORMAT(YMDHMS, '%Y-%m-%d %H:%m:%i') AS YMDHMS,
+            CAST(YMDHMS AS DATETIME) AS DT_YMDHMS,
+            PERF.MNG_NO,
+            IFNULL(NULLIF(DEV.USER_DEV_NAME,''), DEV.DEV_NAME) AS DEV_NAME,
+            ROUND(AVG(avg_val), 2) PERF_RATE,
+            CASE ITEM_TYPE
+                WHEN 1 THEN 'CPU 평균'
+                WHEN 2 THEN 'MEMORY 평균'
+                WHEN 5 THEN '온도 평균'
+                WHEN 11 THEN '세션 평균'
+            END AS PERF_TITLE
+        FROM CM_DEV10 DEV
+        INNER JOIN CM_DEV_PERF_2 PERF
+        ON DEV.MNG_NO = PERF.MNG_NO
+        WHERE YYYYMMDD = DATE_FORMAT(CURRENT_TIMESTAMP, '%Y%m%d')
+         AND YMDHMS BETWEEN  CAST(DATE_FORMAT(NOW() - INTERVAL #{period} MINUTE, '%Y%m%d%H%i%s') AS INT)
+        AND CAST(DATE_FORMAT(NOW(),'%Y%m%d%H%i%s') AS INT)
+        AND perf.item_idx = 0
+        <if test="_parameter.containsKey('mngNo')">
+          and perf.mng_no = CAST(#{mngNo} AS INT)
+        </if>
+        <if test="_parameter.containsKey('itemType')">
+          AND perf.item_type = #{itemType}
+        </if>
+        GROUP BY YMDHMS
+    </select>
+
+    <!-- 장비 성능 현황(응답시간) -->
+    <select id="selectDevRespPerfChart" resultType="CamelHashMap">
+        SELECT
+            DATE_FORMAT(YMDHMS, '%Y-%m-%d %H:%m:%i') AS YMDHMS,
+            CAST(YMDHMS AS DATETIME) AS DT_YMDHMS,
+            PERF.MNG_NO,
+            IFNULL(NULLIF(DEV.USER_DEV_NAME,''), DEV.DEV_NAME) AS DEV_NAME,
+            ROUND(AVG(resp_avg), 2) PERF_RATE,
+            '응답시간 평균' AS PERF_TITLE
+        FROM CM_DEV10 DEV
+        INNER JOIN CM_IP_PERF_2 PERF
+        ON DEV.MNG_NO = PERF.MNG_NO
+        WHERE YYYYMMDD = DATE_FORMAT(CURRENT_TIMESTAMP, '%Y%m%d')
+         AND YMDHMS BETWEEN  CAST(DATE_FORMAT(NOW() - INTERVAL #{period} MINUTE, '%Y%m%d%H%i%s') AS INT)
+        AND CAST(DATE_FORMAT(NOW(),'%Y%m%d%H%i%s') AS INT)
+        <if test="_parameter.containsKey('mngNo')">
+          and perf.mng_no = CAST(#{mngNo} AS INT)
+        </if>
+        GROUP BY YMDHMS
+    </select>
+
+    <!-- 회선 성능 현황 -->
+    <select id="selectIfPerfChart" resultType="CamelHashMap">
+        SELECT
+            <choose>
+                <when test="tableCnt == 3">CAST(YYYYMMDD AS DATETIME) AS DT_YMDHMS</when>
+                <otherwise>CAST(YMDHMS AS DATETIME) AS DT_YMDHMS, DATE_FORMAT(YMDHMS, '%Y-%m-%d %H:%i') AS YMDHMS,</otherwise>
+            </choose>
+            IF(ISNULL(DEV.USER_DEV_NAME) OR DEV.USER_DEV_NAME='', DEV.DEV_NAME, DEV.USER_DEV_NAME) AS DEV_NAME,
+            (SELECT GRP_NAME FROM NT_CFG_GROUP WHERE GRP_NO = DEV.GRP_NO) AS GRP_NAME,
+            DEV.DEV_IP,
+            COALESCE(NULLIF(DEV20.USER_IF_NAME,'') , NULLIF(DEV20.IF_ALIAS,'') , DEV20.IF_NAME) AS IF_NAME,
+            <choose>
+                <when test="itemCol == 'BPSPER'">
+                    ROUND(AVG(avg_inbps / IF(dev20.line_width_val   = 0, POW(1000,3), dev20.line_width_val) * 100), 2) AS inbps,
+                    ROUND(AVG(avg_outbps / IF(dev20.line_width_val  = 0, POW(1000,3), dev20.line_width_val) * 100), 2) AS outbps
+                </when>
+                <when test="itemCol == 'BPS'">
+                    ROUND(AVG(avg_inbps)  , 2) AS inbps,
+                    ROUND(AVG(avg_outbps) , 2) AS outbps
+                </when>
+                <when test="itemCol == 'PPS'">
+                    ROUND(AVG(avg_inpps),   2) AS inpps,
+                    ROUND(AVG(avg_outpps),  2) AS outpps
+                </when>
+                <otherwise>
+                    ROUND(AVG(avg_inbps), 2) AS inbps,
+                    ROUND(AVG(avg_outbps), 2) AS outpbs
+                </otherwise>
+            </choose>
+        FROM CM_DEV10 DEV
+        INNER JOIN CM_IF_PERF_#{tableCnt} PERF ON DEV.MNG_NO = PERF.MNG_NO
+        INNER JOIN (
+          SELECT CD20.*, IF(CD20.USER_LINE_WIDTH_POLL=1, IFNULL(CD20.USER_LINE_WIDTH,0), IFNULL(CD20.LINE_WIDTH,0)) AS LINE_WIDTH_VAL
+			   FROM CM_DEV20 CD20
+        )dev20 ON dev20.MNG_NO = perf.mng_no AND dev20.if_idx = perf.if_idx
+        WHERE 1=1
+        AND dev20.mng_no = #{mngNo}
+        AND dev20.if_idx = #{ifIdx}
+        AND perf.yyyymmdd BETWEEN CAST(#{date1} AS INT) AND CAST(#{date2} AS INT)
+        <if test="tableCnt != 3">
+            AND perf.ymdhms BETWEEN CAST(CONCAT(#{date1}, #{time1}, '00') AS INT) AND CAST(CONCAT(#{date2}, #{time2}, '59') AS INT)
+        </if>
+        <choose>
+            <when test="tableCnt == 3">
+            GROUP BY perf.yyyymmdd, perf.mng_no, perf.if_idx
+            ORDER BY perf.yyyymmdd
+            </when>
+            <otherwise>
+            GROUP BY perf.ymdhms, perf.mng_no, perf.if_idx
+            ORDER BY perf.ymdhms
+            </otherwise>
+        </choose>
+    </select>
+
+    <!--AND YYYYMMDD = DATE_FORMAT(CURRENT_TIMESTAMP, '%Y%m%d')
+        AND YMDHMS BETWEEN  CAST(DATE_FORMAT(NOW() - INTERVAL #{period} MINUTE, '%Y%m%d%H%i%s') AS INT)
+        AND CAST(DATE_FORMAT(NOW(),'%Y%m%d%H%i%s') AS INT)-->
+
+    <select id="selectDevList" resultType="CamelHashMap">
+        SELECT
+            MNG_NO,
+            DEV_IP,
+            DEV_NAME,
+            IF( ISNULL( USER_DEV_NAME )
+            OR USER_DEV_NAME = '',
+            DEV_NAME,
+            USER_DEV_NAME ) AS DIS_DEV_NAME,
+            USER_DEV_NAME,
+            B.GRP_NAME,
+            A.GRP_NO,
+            CASE
+                WHEN VENDOR IS NULL
+                AND MODEL = 'ETC' THEN ''
+                WHEN VENDOR = ''
+                AND MODEL = 'ETC' THEN ''
+                ELSE MODEL
+            END MODEL,
+            VENDOR,
+            DEV_KIND1,
+            CASE
+                DEV_KIND1
+                WHEN 'DEV' THEN '장비'
+                WHEN 'SVR' THEN '서버'
+                ELSE DEV_KIND1
+            END AS DIS_DEV_KIND1,
+            DEV_KIND2,
+            COMMUNITY,
+            DEV_LOCATION,
+            (
+              SELECT
+                code_nm
+              FROM tb_com_code
+              WHERE p_code_id IN (
+                SELECT code_id FROM tb_com_code WHERE 1=1 AND code_cd = 'DEV_TYPE'
+              ) AND code_cd = dev_kind1
+            ) AS dev_kind1_str,
+            (SELECT code_value1 FROM cm_code10 WHERE code_kind = 'VENDOR' AND code_id = vendor) AS vendor_str,
+            (SELECT code_nm FROM tb_com_code
+            WHERE p_code_id IN (SELECT code_id from tb_com_code WHERE code_cd = dev_kind1)
+            AND code_cd = dev_kind2) AS dev_kind2_str
+        FROM
+            CM_DEV10 A,
+            NT_CFG_GROUP B
+        WHERE
+            A.GRP_NO = B.GRP_NO
+            AND	B.GRP_NO IN (SELECT DISTINCT SUB_NO FROM NT_CFG_LEAF WHERE GRP_NO = #{grpNo})
+            <if test="_parameter.containsKey('mngNo') and mngNo != -1">
+              AND a.MNG_NO = #{mngNo}
+            </if>
+            <if test="_parameter.containsKey('text') and text != ''">
+              <choose>
+                  <when test="type == 'NAME'">
+                      AND (UPPER(A.USER_DEV_NAME) LIKE CONCAT('%', UPPER(#{text}), '%') OR UPPER(A.DEV_NAME) LIKE CONCAT('%', UPPER(#{text}), '%'))
+                  </when>
+                  <otherwise>
+                      AND a.dev_ip LIKE CONCAT('%', #{text}, '%')
+                  </otherwise>
+              </choose>
+            </if>
+        ORDER BY
+            DEV_KIND1,
+            DEV_KIND2,
+            DEV_NAME,
+            DEV_IP
+    </select>
+
+    <select id="selectIfList" resultType="CamelHashMap">
+        SELECT
+            B.GRP_NO,
+            D.GRP_NAME,
+            A.MNG_NO,
+            B.DEV_NAME,
+            IFNULL( NULLIF( B.USER_DEV_NAME, '' ), B.DEV_NAME ) AS DIS_DEV_NAME,
+            B.DEV_IP,
+            A.PROFILE_NO,
+            P.PROFILE_NM,
+            A.IF_IDX,
+            A.STATUS,
+            IF( A.USER_LINE_WIDTH_POLL = 1, '사용대역',
+            '원본대역' ) AS USER_LINE_WIDTH_POLL_STR,
+            IF( A.USER_LINE_WIDTH_POLL = 1,
+            IFNULL( A.USER_LINE_WIDTH,
+            0 ),
+            IFNULL( A.LINE_WIDTH,
+            0 )) AS LINE_WIDTH,
+            A.IF_MASK,
+            A.IF_IP,
+            A.IF_MAC,
+            A.IF_ALIAS,
+            IFNULL( NULLIF( A.USER_IF_NAME, '' ), A.IF_NAME ) AS IF_NAME,
+            A.IS_MAIN,
+            A.PERF_POLL,
+            A.FLOW_POLL,
+            A.USER_LINE_WIDTH_POLL
+        FROM
+            CM_DEV10 B,
+            NT_CFG_GROUP D,
+            CM_DEV20 A
+        LEFT JOIN TB_COM_PROFILE P ON
+            ( A.PROFILE_NO = P.PROFILE_NO
+            AND P.SYSTEM_CD = 'IF' )
+        WHERE
+            A.MNG_NO = B.MNG_NO
+            AND B.MNG_NO = #{mngNo}
+            <if test="_parameter.containsKey('ifIdx') and ifIdx != -1">
+              AND a.if_idx = #{ifIdx}
+            </if>
+            <if test="_parameter.containsKey('text') and text != ''">
+                  <choose>
+                      <when test="type == 'NAME'">
+                          AND (UPPER(A.USER_IF_NAME) LIKE CONCAT('%', UPPER(#{text}), '%') OR UPPER(A.IF_NAME) LIKE CONCAT('%', UPPER(#{text}), '%'))
+                      </when>
+                      <otherwise>
+                          AND a.if_ip LIKE CONCAT('%', #{text}, '%')
+                      </otherwise>
+                  </choose>
+                </if>
+            AND D.GRP_NO = B.GRP_NO
+    </select>
+
+    <select id="selectGrpDevList" resultType="CamelHashMap">
+      SELECT
+            *
+        FROM
+            (
+            SELECT
+                DISTINCT A.GRP_PARENT,
+                CAST( A.GRP_NO AS CHAR ) AS GRP_NO,
+                0 ISLEAF,
+                A.GRP_REF,
+                CONCAT( A.GRP_NAME,
+                '(',
+                IFNULL( C.CNT,
+                0 ),
+                ')' ) AS GRP_NAME,
+                '' AS DEV_KIND1,
+                'GROUP' AS DEV_KIND2,
+                '' AS DEV_IP,
+                A.GRP_CODE,
+                A.SORT
+            FROM
+                (
+                SELECT
+                    *
+                FROM
+                    NT_CFG_GROUP T1,
+                    (
+                    SELECT
+                        DISTINCT SUB_NO
+                    FROM
+                        NT_CFG_LEAF
+                    WHERE
+                        GRP_NO IN (
+                        SELECT
+                            NT_GRP_NO
+                        FROM
+                            COM_AUTH_GROUP_SUBGRP
+                        WHERE
+                            AUTH_GRP_NO = #{authGrpNo} )
+                UNION ALL
+                    SELECT
+                        DISTINCT SUB_NO
+                    FROM
+                        NT_CFG_GRP_LEAF
+                    WHERE
+                        GRP_NO IN (
+                        SELECT
+                            NT_GRP_NO
+                        FROM
+                            COM_AUTH_GROUP_SUBGRP
+                        WHERE
+                            AUTH_GRP_NO = #{authGrpNo} )) T2
+                WHERE
+                    T1.GRP_NO = T2.SUB_NO
+                    AND T1.GRP_TYPE = 1
+                    AND T1.GRP_NO != 0
+                    AND REPLACE( T1.GRP_NAME,
+                    ' ',
+                    '' ) NOT IN ( '기본장비그룹',
+                    '미등록장비그룹' ) ) A
+            LEFT OUTER JOIN (
+                SELECT
+                    Y.GRP_NO,
+                    COUNT( X.MNG_NO ) AS CNT
+                FROM
+                    CM_DEV10 X,
+                    NT_CFG_LEAF Y
+                WHERE
+                    X.GRP_NO = Y.SUB_NO
+                    AND DEV_KIND1 IN ('DEV')
+                GROUP BY
+                    Y.GRP_NO ) C ON
+                ( A.GRP_NO = C.GRP_NO )
+        <if test="_parameter.containsKey('isContainDev')">
+        UNION ALL
+            SELECT
+                A.GRP_NO AS GRP_PARENT,
+                CONCAT( A.GRP_NO,
+                '_',
+                A.MNG_NO ) AS GRP_NO,
+                0 AS ISLEAF,
+                0 AS GRP_REF,
+                IF( ISNULL( USER_DEV_NAME )
+                OR USER_DEV_NAME = '',
+                DEV_NAME,
+                USER_DEV_NAME ) AS GRP_NAME,
+                DEV_KIND1,
+                DEV_KIND2,
+                DEV_IP,
+                '' AS GRP_CODE,
+                NULL AS SORT
+            FROM
+                CM_DEV10 A,
+                (
+                SELECT
+                    DISTINCT SUB_NO
+                FROM
+                    NT_CFG_LEAF
+                WHERE
+                    GRP_NO IN (
+                    SELECT
+                        NT_GRP_NO
+                    FROM
+                        COM_AUTH_GROUP_SUBGRP
+                    WHERE
+                        AUTH_GRP_NO = #{authGrpNo} )
+            UNION ALL
+                SELECT
+                    DISTINCT SUB_NO
+                FROM
+                    NT_CFG_GRP_LEAF
+                WHERE
+                    GRP_NO IN (
+                    SELECT
+                        NT_GRP_NO
+                    FROM
+                        COM_AUTH_GROUP_SUBGRP
+                    WHERE
+                        AUTH_GRP_NO = #{authGrpNo} )) B
+            WHERE
+                A.GRP_NO = B.SUB_NO
+                AND A.DEV_KIND1 IN ('DEV')
+                AND A.DEV_KIND1 = 'DEV'
+        </if>
+                ) A
+        ORDER BY
+            GRP_PARENT,
+            IF( DEV_KIND2 = 'GROUP',
+            0,
+            1 ),
+            SORT,
+            GRP_NAME
+    </select>
+
+    <!-- 회선 축약어 -->
+    <sql id="selectIfAbbr">
+        CASE
+            WHEN IF_NAME LIKE '%TenGigabitEthernet%' THEN REPLACE(IF_NAME, 'TenGigabitEthernet', 'T-GE')
+            WHEN IF_NAME LIKE '%GigabitEthernet%' THEN REPLACE(IF_NAME, 'GigabitEthernet', 'Gi')
+            WHEN IF_NAME LIKE '%Ethernet%' THEN REPLACE(IF_NAME, 'Ethernet', 'Eth')
+            ELSE IF_NAME
+        END
+    </sql>
+</mapper>

@@ -1,0 +1,115 @@
+
+#n_login {
+  width: 100%;
+  min-height: 100%;
+  position: absolute;
+  left: 0;
+  top: 0;
+  background-color: #f9f9f9;
+}
+
+.login_block {
+  position: relative;
+  width: 1140px;
+  height: 855px;
+  padding-top: 82px;
+  margin: 0 auto;
+  background-image: url('../../assets/images/login/login_bg.png');
+  background-repeat: no-repeat;
+  background-position: center bottom;
+}
+
+.login_box {
+  position: absolute;
+  top: 250px;
+  right: 34px;
+  width: 360px;
+  height: 400px;
+  text-align: center;
+  font-family: Malgun Gothic, "맑은고딕;"
+}
+
+/*로고 위치 이동*/
+.login_logo {
+  position: absolute;
+  top: -60px;
+  left: 50px;
+}
+
+.inputBox2 {
+  width: 360px;
+  height: 400px;
+  padding: 46px 30px;
+  box-sizing: border-box;
+}
+
+.inputBox2 .login_form {
+  margin-bottom: 30px;
+}
+
+.inputBox2 .login_form>div {
+  position: relative;
+  padding-bottom: 14px;
+}
+
+.inputBox2 .login_form>div:last-child {
+  /* padding-bottom: 0; */
+  position: relative;
+  text-align: left;
+  font-size: 12px;
+}
+
+.inputBox2 .login_form>div:last-child>label {
+  position: absolute;
+  top: 0px;
+  left: 22px;
+}
+
+.inputBox2 .login_form>div>img {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+}
+
+.inputBox2 .login_form>div>input {
+  width: 280px;
+  height: 50px;
+  padding-left: 20px;
+  border: 1px solid #c5c5c5;
+  border-radius: 5px;
+  color: #333;
+}
+
+input::-webkit-input-placeholder {
+  color: rgba(193, 193, 193, 1);
+  font-style: normal;
+}
+
+input:-ms-input-placeholder {
+  color: rgba(193, 193, 193, 1);
+  font-style: normal;
+}
+
+.login_btn {
+  width: 300px;
+  height: 50px;
+  margin-bottom: 20px;
+}
+
+.login_sub {
+  width: 300px;
+  height: 50px;
+}
+
+.login_btn img {
+  cursor: pointer
+}
+
+.login_copy {
+  position: absolute;
+  right: 50%;
+  margin-right: -140px;
+  bottom: 40px;
+  font-size: 12px;
+  color: #888;
+}

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="_이어_1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 58 62">
+  <defs>
+    <style>.cls-1,.cls-2{fill:#fff;}.cls-3{stroke-linejoin:round;}.cls-3,.cls-4{fill:none;stroke:#fff;stroke-width:.5px;}.cls-2{font-family:MalgunGothic, 'Malgun Gothic';font-size:10px;}.cls-5{fill:transparent;}.cls-4{opacity:.5;stroke-miterlimit:10;}</style>
+  </defs>
+  <g>
+    <g id="_애현황"><rect class="cls-5" width="58" height="62" rx="6.97" ry="6.97"/></g>
+    <g>
+      <rect class="cls-1" x="19.05" y="20.36" width="3.26" height="3" transform="translate(-1.18 42.53) rotate(-90)"/>
+      <rect class="cls-1" x="26.86" y="16.62" width="10.72" height="3" transform="translate(14.09 50.34) rotate(-90)"/>
+      <rect class="cls-1" x="21.72" y="17.26" width="9.45" height="3" transform="translate(7.69 45.21) rotate(-90)"/>
+      <rect class="cls-1" x="34.44" y="18.44" width="7.1" height="3" transform="translate(18.05 57.92) rotate(-90)"/>
+    </g>
+    <line class="cls-3" x1="17.83" y1="23.86" x2="40.83" y2="23.86"/>
+    <line class="cls-4" x1="17.83" y1="18.81" x2="40.83" y2="18.81"/>
+    <line class="cls-4" x1="17.83" y1="12.76" x2="40.83" y2="12.76"/>
+    <rect class="cls-1" x="18.07" y="27.11" width="1.84" height="1.5"/>
+    <rect class="cls-1" x="18.07" y="30.31" width="1.84" height="1.5"/>
+    <rect class="cls-1" x="18.07" y="33.52" width="1.84" height="1.5"/>
+    <rect class="cls-1" x="22.18" y="27.11" width="18.65" height="1.5"/>
+    <rect class="cls-1" x="22.18" y="30.31" width="18.65" height="1.5"/>
+    <rect class="cls-1" x="22.18" y="33.52" width="18.65" height="1.5"/>
+  </g>
+  <text class="cls-2" transform="translate(14.83 51)">
+    <tspan x="0" y="0">그리드</tspan>
+  </text>
+</svg>

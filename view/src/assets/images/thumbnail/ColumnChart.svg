@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg version="1.1" id="레이어_1" xmlns="http://www.w3.org/2000/svg"  viewBox="0 0 58 62" style="enable-background:new 0 0 58 62;">
+<style type="text/css">
+	.st0{fill:transparent;}
+	.st1{fill:#ffffff;}
+	.st2{font-family:'MalgunGothic','맑은고딕',Verdana, Helvetica, Sans-Serif;}
+	.st3{font-size:10px;}
+	.st4{opacity:0.5;}
+  svg:hover .st0{fill:#226cff}
+  svg:hover .st1{fill:#ffffff}
+</style>
+<g>
+	<g id="장애현황_00000141430764046820895390000008435371223868701343_">
+		<path class="st0" d="M7,0H51c3.8,0,7,3.1,7,7V55c0,3.8-3.1,7-7,7H7c-3.8,0-7-3.1-7-7V7C0,3.1,3.1,0,7,0z"/>
+		<text transform="matrix(1 0 0 1 28.6824 52.2332)" text-anchor="middle" class="st1 st2 st3">차트</text>
+	</g>
+	<g>
+		<polygon class="st1" points="38.2,37.4 38.2,23 35.2,23 35.2,37.4 32.4,37.4 32.4,15.6 29.4,15.6 29.4,37.4 26.6,37.4 26.6,18.2
+			23.6,18.2 23.6,37.4 20.8,37.4 20.8,30.9 17.8,30.9 17.8,37.4 16.5,37.4 16.5,37.9 39.5,37.9 39.5,37.4 		"/>
+		<g class="st4">
+			<rect x="16.5" y="29.5" class="st1" width="23" height="0.5"/>
+			<rect x="16.5" y="21.5" class="st1" width="23" height="0.5"/>
+			<rect x="16.5" y="14.4" class="st1" width="23" height="0.5"/>
+		</g>
+	</g>
+</g>
+</svg>

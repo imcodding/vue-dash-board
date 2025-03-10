@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dash.widget.sms.persistence.WidgetSmsMapper">
+
+    <!-- 서버 CPU TopN -->
+    <select id="selectHighCpuBySvr" resultType="CamelHashMap">
+        SELECT
+            A.MNG_NO,
+            A.GRP_NAME,
+            IFNULL(NULLIF(A.USER_DEV_NAME,''), A.DEV_NAME) AS DEV_NAME,
+            A.DEV_IP,
+            A.DEV_KIND1,
+            A.DEV_KIND2,
+            B.USER_PCT AS PERF_VAL
+        FROM    (<include refid="Common.selectDevListForGrpTab"/> AND DEV_KIND1 = 'SVR') A, NT_SVR_CPU B
+        WHERE   A.MNG_NO = B.MNG_NO
+        AND     B.LAST_UPD >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 15 MINUTE)
+        ORDER BY PERF_VAL DESC
+        <if test="_parameter.containsKey('topN')">
+            <bind name="topN" value="@java.lang.Integer@valueOf(topN)"/>
+            LIMIT #{topN}
+        </if>
+    </select>
+
+    <!-- 서버 Memory TopN t-->
+    <select id="selectHighMemoryBySvr" resultType="CamelHashMap">
+        SELECT
+            A.MNG_NO,
+            A.GRP_NAME,
+            IFNULL(NULLIF(A.USER_DEV_NAME,''), A.DEV_NAME) AS DEV_NAME,
+            A.DEV_IP,
+            A.DEV_KIND1,
+            A.DEV_KIND2,
+            B.PHYSICAL_USED_PCT AS PERF_VAL,
+            B.PHYSICAL_TOTAL_SIZE,
+            (B.PHYSICAL_TOTAL_SIZE-B.PHYSICAL_FREE_SIZE) AS PHYSICAL_USED_SIZE
+        FROM    (<include refid="Common.selectDevListForGrpTab"/> AND DEV_KIND1 = 'SVR') A, NT_SVR_MEMORY B
+        WHERE   A.MNG_NO = B.MNG_NO
+        AND     B.LAST_UPD >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 15 MINUTE)
+        ORDER BY PERF_VAL DESC
+        <if test="_parameter.containsKey('topN')">
+            <bind name="topN" value="@java.lang.Integer@valueOf(topN)"/>
+            LIMIT #{topN}
+        </if>
+    </select>
+
+    <!-- 서버 파일시스템 TopN -->
+    <select id="selectHighFilesystemBySvr" resultType="CamelHashMap">
+        SELECT
+            A.MNG_NO,
+            A.GRP_NAME,
+            IFNULL(NULLIF(A.USER_DEV_NAME,''), A.DEV_NAME) AS DEV_NAME,
+            A.DEV_IP,
+            A.DEV_KIND1,
+            A.DEV_KIND2,
+            B.MOUNT_POINT,
+            ROUND(IFNULL(B.USED_PCT,0), 2) AS USED_PCT,
+            B.TOTAL_SIZE,
+            (B.TOTAL_SIZE-B.FREE_SIZE) AS USED_SIZE,
+            B.FREE_SIZE
+        FROM    (<include refid="Common.selectDevListForGrpTab"/> AND DEV_KIND1 = 'SVR') A, NT_SVR_FILESYSTEM B
+        WHERE   A.MNG_NO = B.MNG_NO
+        AND     B.USE_FLAG = 1
+        AND     B.LAST_UPD >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 15 MINUTE)
+        ORDER BY USED_PCT DESC
+        <if test="_parameter.containsKey('topN')">
+            <bind name="topN" value="@java.lang.Integer@valueOf(topN)"/>
+            LIMIT #{topN}
+        </if>
+    </select>
+
+    <!-- 서버 Traffic TopN -->
+    <select id="selectHighTrafficBySvr" resultType="CamelHashMap">
+        SELECT
+            A.GRP_NAME,
+            CONCAT(A.MNG_NO,'_',C.NAME) AS UNIQ_KEY,
+            A.MNG_NO,
+            IFNULL(NULLIF(A.USER_DEV_NAME,''), A.DEV_NAME) AS DEV_NAME,
+            A.DEV_IP,
+            C.NAME AS IF_NAME,
+            C.BAND_WIDTH,
+            C.IN_BPS AS INBPS,
+            C.OUT_BPS AS OUTBPS,
+            C.IN_BPS+C.OUT_BPS AS BPS,
+            C.IN_BPS_RATE AS INBPS_PER,
+            C.OUT_BPS_RATE AS OUTBPS_PER,
+            C.IN_BPS_RATE+C.OUT_BPS_RATE AS BPS_PER
+        FROM    (<include refid="Common.selectDevListForGrpTab"/> AND DEV_KIND1 = 'SVR') A, NT_SVR_NETWORK C
+        WHERE   A.MNG_NO = C.MNG_NO
+        AND     C.LAST_UPD >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 15 MINUTE)
+        ORDER BY
+        <choose>
+            <when test="ifInout == 'SUM' or ifInout == 'IO'"> BPS DESC</when>
+            <when test="ifInout == 'IN'"> INBPS DESC</when>
+            <when test="ifInout == 'OUT'"> OUTBPS DESC</when>
+            <when test="ifInout == 'SUM_PER' or ifInout == 'IO_PER'"> BPS_PER DESC</when>
+            <when test="ifInout == 'IN_PER'"> INBPS_PER DESC</when>
+            <when test="ifInout == 'OUT_PER'"> OUTBPS_PER DESC</when>
+        </choose>
+        <if test="_parameter.containsKey('topN')">
+            <bind name="topN" value="@java.lang.Integer@valueOf(topN)"/>
+            LIMIT #{topN}
+        </if>
+    </select>
+
+    <!-- 프로세스 CPU/MEM TopN
+            itemType    CPU | MEM
+        -->
+    <select id="selectHighResourceByProcess" resultType="CamelHashMap">
+        SELECT
+            A.MNG_NO,
+            A.GRP_NAME,
+            IFNULL(NULLIF(A.USER_DEV_NAME,''), A.DEV_NAME) AS DEV_NAME,
+            A.DEV_IP,
+            A.DEV_KIND1,
+            A.DEV_KIND2,
+            B.PID,
+            B.PPID,
+            B.NAME AS PROCESS_NAME,
+            B.CMDLINE,
+            B.STATE,
+            B.START_TIME,
+            B.USERNAME,
+            CONCAT(A.DEV_IP,'\n',B.NAME,'(', B.PID,')') AS DIS_TEXT,
+            B.CPU_PCT,
+            B.MEM_PCT
+        FROM    (<include refid="Common.selectDevListForGrpTab"/> AND DEV_KIND1 = 'SVR') A, NT_SVR_PROCESS B
+        WHERE   A.MNG_NO = B.MNG_NO
+        AND     B.LAST_UPD >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 15 MINUTE)
+        <choose>
+            <when test="_parameter.containsKey('itemType') and itemType == 'MEM'">
+                ORDER BY MEM_PCT DESC
+            </when>
+            <otherwise>
+                ORDER BY CPU_PCT DESC
+            </otherwise>
+        </choose>
+        <if test="_parameter.containsKey('topN')">
+            <bind name="topN" value="@java.lang.Integer@valueOf(topN)"/>
+            LIMIT #{topN}
+        </if>
+    </select>
+
+    <!-- 감시프로세스 CPU/MEM TopN
+        itemType    CPU | MEM
+    -->
+    <select id="selectHighResourceByMonitoringProcess" resultType="CamelHashMap">
+        SELECT
+            A.MNG_NO,
+            A.GRP_NAME,
+            IFNULL(NULLIF(A.USER_DEV_NAME,''), A.DEV_NAME) AS DEV_NAME,
+            A.DEV_IP,
+            A.DEV_KIND1,
+            A.DEV_KIND2,
+            B.MPROC_NO,
+            IFNULL(NULLIF(B.USER_MPROC_NAME,''), B.MPROC_NAME) AS MPROC_NAME,
+            B.CMD_LINE,
+            CONCAT(A.DEV_IP,'\n',IFNULL(NULLIF(B.USER_MPROC_NAME,''), B.MPROC_NAME)) AS DIS_TEXT,
+            C.CPU_PCT,
+            C.MEM_PCT
+        FROM    (<include refid="Common.selectDevListForGrpTab"/> AND DEV_KIND1 = 'SVR') A,
+        CM_CFG_SVR_MPROC B, CM_SVR_MPROC_PERF_LAST C
+        WHERE   A.MNG_NO = B.MNG_NO
+        AND     A.MNG_NO = C.MNG_NO
+        AND     B.MPROC_NO = C.MPROC_NO
+        AND     B.DEL_YN = 'N'
+        AND     C.LAST_UPD >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 15 MINUTE)
+        <choose>
+            <when test="_parameter.containsKey('itemType') and itemType == 'MEM'">
+                ORDER BY MEM_PCT DESC
+            </when>
+            <otherwise>
+                ORDER BY CPU_PCT DESC
+            </otherwise>
+        </choose>
+        <if test="_parameter.containsKey('topN')">
+            <bind name="topN" value="@java.lang.Integer@valueOf(topN)"/>
+            LIMIT #{topN}
+        </if>
+    </select>
+</mapper>

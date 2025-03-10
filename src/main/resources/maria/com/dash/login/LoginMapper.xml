@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dash.login.persistence.LoginMapper">
+    <resultMap type="com.dash.common.model.User" id="resultUser">
+        <result property="userId" 				column="USER_ID"/>
+        <result property="userName" 			column="USER_NAME"/>
+        <result property="deptName" 			column="DEPT_NAME"/>
+        <result property="authGrpNo" 			column="AUTH_GRP_NO"/>
+        <result property="auth" 				column="AUTH"/>
+        <result property="isshare" 				column="ISSHARE"/>
+        <result property="parentId" 			column="PARENT_ID"/>
+        <result property="topoAuthGrpNo" 		column="TOPO_AUTH_GRP_NO"/>
+        <result property="userPcIp" 			column="USER_PC_IP"/>
+        <result property="passDate" 			column="PASS_DATE"/>
+        <result property="passChgDate" 			column="PASS_CHG_DATE"/>
+        <result property="useFlag" 				column="USE_FLAG"/>
+        <result property="cellTel"				column="CELL_TEL"/>
+        <result property="menuAuthNo"			column="MENU_AUTH_NO"/>
+        <result property="isResetPw"            column="IS_RESET_PW"/>
+        <result property="passErrCnt"           column="PASS_ERR_CNT"/>
+    </resultMap>
+
+    <!-- 사용자 조회 -->
+    <select id="selectUserInfo" resultMap="resultUser">
+        SELECT	USER_ID,
+        USER_NAME,
+        DEPT_NAME,
+        AUTH_GRP_NO,
+        AUTH,
+        ISSHARE,
+        PARENT_ID,
+        TOPO_AUTH_GRP_NO,
+        USER_PC_IP,
+        PASS_DATE,
+        PASS_CHG_DATE,
+        PASS_ERR_CNT,
+        USE_FLAG,
+        CELL_TEL,
+        MENU_AUTH_NO,
+        IS_RESET_PW
+        FROM	COM_USER
+        WHERE	USER_ID = #{userId}
+        <if test="!_parameter.containsKey('isSsoLogin') and isSsoLogin == null ">
+          AND PASSWORD = #{password}
+        </if>
+    </select>
+
+    <select id="selectUserInfoById" resultMap="resultUser">
+        SELECT	USER_ID,
+        USER_NAME,
+        AUTH_GRP_NO,
+        AUTH,
+        ISSHARE,
+        PARENT_ID,
+        TOPO_AUTH_GRP_NO,
+        USER_PC_IP,
+        PASS_DATE,
+        PASS_ERR_CNT,
+        PASS_CHG_DATE,
+        USE_FLAG,
+        CELL_TEL,
+        MENU_AUTH_NO,
+        IS_RESET_PW
+        FROM		COM_USER
+        WHERE	USER_ID = #{userId}
+    </select>
+
+    <!-- 로그인이력 -->
+    <insert id="insertLoginHistory">
+        <!--<selectKey keyProperty="sessionId" resultType="long" order="BEFORE">-->
+        <!--SELECT	IFNULL(MAX(SESSION_ID), 0) + 1 FROM COM_USER_HISTORY-->
+        <!--</selectKey>-->
+        INSERT INTO COM_USER_HISTORY (
+        USER_ID, SESSION_ID, LOGIN_DATE, LOGIN_IP
+        )
+        VALUES (
+        #{userId}, #{sessionId}, NOW(), #{loginIp}
+        )
+    </insert>
+
+
+    <!-- 로그아웃 이력 -->
+    <update id="updateLogoutHistory">
+        UPDATE	COM_USER_HISTORY
+        SET		LOGOUT_DATE = NOW()
+        WHERE	USER_ID = #{userId}
+        AND		SESSION_ID = #{sessionId}
+    </update>
+
+    <update id="updateLoginFail">
+        UPDATE
+        COM_USER
+        SET
+        PASS_ERR_CNT = IFNULL(PASS_ERR_CNT, 0) + 1,
+        PASS_DATE = CASE WHEN (IFNULL(PASS_ERR_CNT, 0) + 1) > (SELECT VAL1 FROM COM_POLICY WHERE POLICY_KIND = 'PASSWORD_POLICY' AND POLICY_NAME = 'PASSWORD_INPUTCOUNT') THEN NOW() ELSE NULL END,
+        USE_FLAG =
+        CASE
+        WHEN ((IFNULL(PASS_ERR_CNT, 0) + 1) >
+        (SELECT
+        VAL1
+        FROM
+        COM_POLICY
+        WHERE POLICY_KIND = 'PASSWORD_POLICY'
+        AND POLICY_NAME = 'PASSWORD_INPUTCOUNT')) AND ((SELECT val1 FROM COM_POLICY WHERE POLICY_KIND = 'PASSWORD_POLICY'
+        AND POLICY_NAME = 'PASSWORD_LOCK_TYPE') = 1)
+        THEN 1
+        WHEN ((IFNULL(PASS_ERR_CNT, 0) + 1) >
+        (SELECT
+        VAL1
+        FROM
+        COM_POLICY
+        WHERE POLICY_KIND = 'PASSWORD_POLICY'
+        AND POLICY_NAME = 'PASSWORD_INPUTCOUNT')) AND ((SELECT val1 FROM COM_POLICY WHERE POLICY_KIND = 'PASSWORD_POLICY'
+        AND POLICY_NAME = 'PASSWORD_LOCK_TYPE') = 0)
+        THEN 9
+        ELSE USE_FLAG
+        END
+        WHERE	USER_ID = #{userId}
+    </update>
+
+    <update id="updateLoginTryLast">
+        UPDATE
+        COM_USER
+        SET
+        PASS_ERR_CNT = IFNULL(PASS_ERR_CNT, 0) + 1
+        WHERE	USER_ID = #{userId}
+    </update>
+
+
+
+    <insert id="insertLoginLock">
+        INSERT INTO CM_CHANGE_CONFIG_HIST (KIND, NAME, BEFORE_VAL, AFTER_VAL, USER_ID	)
+        VALUES (
+        'USER_USE_FLAG'
+        , CONCAT((SELECT CONCAT(USER_ID, CONCAT('[', CONCAT(USER_NAME, ']'))) FROM COM_USER WHERE USER_ID = #{userId}), ' 계정 상태가 변경되었습니다.')
+        , (SELECT CASE USE_FLAG WHEN 0 THEN '정지' WHEN 1 THEN '승인' WHEN 2 THEN '대기' WHEN 3 THEN '잠김' ELSE USE_FLAG END AS USE_FLAG_STR FROM COM_USER WHERE USER_ID = #{userId})
+        , '정지'
+        , 'SYSTEM')
+    </insert>
+
+    <update id="updateLoginSuccess">
+        UPDATE	COM_USER
+        SET	PASS_ERR_CNT = 0,
+        PASS_DATE = NULL,
+        USE_FLAG =
+        CASE
+        WHEN (USE_FLAG = 9)
+        THEN 1
+        ELSE USE_FLAG
+        END
+        WHERE	USER_ID = #{userId}
+    </update>
+
+    <update id="updateTimeInit">
+        UPDATE	COM_USER
+        SET		PASS_ERR_CNT = 0,
+        PASS_DATE = NULL,
+        USE_FLAG =
+        CASE
+        WHEN (USE_FLAG = 9)
+        THEN 1
+        ELSE USE_FLAG
+        END
+        WHERE	USER_ID = #{userId}
+    </update>
+
+    <select id="selectIsLockClearYn" resultType="String">
+        SELECT	CASE
+        WHEN PASS_DATE IS NULL THEN 'Y'
+        WHEN NOW() <![CDATA[ > ]]> (PASS_DATE + 10/(24 * 60)) THEN 'Y'
+        ELSE 'N'
+        END IS_LOCK_CLEAR
+        FROM	COM_USER
+        WHERE	USER_ID = #{userId}
+    </select>
+
+    <select id="selectSaltById" resultType="java.lang.String">
+        SELECT		PW_SALT
+        FROM		COM_USER
+        WHERE	USER_ID = #{userId}
+    </select>
+
+    <update id="updateResetPwFlag">
+        UPDATE	COM_USER
+        SET 	IS_RESET_PW = 2
+        WHERE	USER_ID = #{userId}
+    </update>
+
+    <!-- token 임시(컬럼 생성되면 수정할 예정) -->
+    <select id="selectRefreshToken" resultType="java.lang.String">
+        select dash_key from cm_dash_dev where dev_ip = '1.1.1.1'
+    </select>
+
+    <update id="updateRefreshToken">
+        update cm_dash_dev set dash_key = #{refreshToken} where dev_ip = '1.1.1.1'
+    </update>
+</mapper>

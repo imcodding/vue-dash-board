@@ -1,0 +1,232 @@
+@charset "UTF-8";
+
+/**
+ 전체 배경
+ 배경 파일 이름 업로드시 dashBG.jpg 으로 고정 사용. 파일명/확장자 수정 금지
+**/
+.whiteTheme #hd-All-Content {
+  background: url("../../../static/img/dashBG.jpg") no-repeat;
+}
+
+/*====================
+  header
+====================*/
+#hd-header {width: 100%;height: 100%;}
+
+/*헤더 영역 높이값 조절*/
+div[id^="hd-header"] #logo {position: absolute;top: 0;left: 0;}
+
+div[id^="hd-header"] .hd-Main-Title {
+  text-shadow: 1px 1px rgba(0, 0, 0, 0.7);
+}
+
+/*Date, Refresh*/
+
+div[id^="hd-Admin-Function"] .hd-Refresh {
+  background: #010d1a;
+}
+
+div[id^="hd-Admin-Function"] .Ref-fillbar {
+  background: #00adee;
+}
+
+/*button, functionBtn*/
+
+div[id^="hd-Admin-Button"]>.AdmBtn div {
+  background: #343b45;
+}
+
+div[id^="hd-Admin-Button"]>.AdmBtn div:hover,
+div[id^="hd-Admin-Button"]>.AdmBtn div:active {
+  background: #4f6d9b;
+}
+
+/*관리자용 운영자용 버튼 활성화시 색상*/
+
+
+.whiteTheme div[id^="hd-Admin-Button"]>.hd-btn>div {
+  border:1px solid #b1bdd0;
+  width:34px;
+  height:34px;
+}
+
+.whiteTheme div[id^="hd-Admin-Function"] .hd-date{color:#354359}
+
+.whiteTheme .lightAnimation{background:linear-gradient(132deg, rgba(255,255,255,1), rgba(255,255,255,1), rgba(0,173,238,1), rgba(255,255,255,1), rgba(255,255,255,1));
+background-size: 400% 400%;
+animation: BackgroundGradient 10s ease infinite;
+}
+
+@keyframes BackgroundGradient {
+  0% {background-position: 100% 100%;}
+  50% {background-position: 0% 10%;}
+  100% {background-position: 0% 0%;}
+}
+/*====================
+  Contents 영역 기본
+====================*/
+/* 패널별 */
+.whiteTheme  #hd-Content-main{border-color:#bdc4d6}
+
+/*컨텐츠 영역 높이값 조절*/
+
+
+.whiteTheme div[class^="hd-column"]>.hd-title-section {
+  background:#ebf3fc;
+  color:#354359;
+  border-bottom: 1px solid #bdc4d6;
+}
+.whiteTheme div[class^="hd-column"]>.hd-title-section-sub {
+  background:#ebf3fc;
+  color:#354359;
+  border-color:#bdc4d6;
+}
+
+.whiteTheme div[class^="hd-column"]>.hd-no-title-section {
+  background:transparent;
+}
+
+.whiteTheme div[class^="hd-column"] .hd-tit-icon-section {
+  /*background: url("../images/titBG2.png") top left no-repeat;*/
+}
+.whiteTheme div[class^="hd-column"] i.icon-arrow{background-color: #1C6ECE;}
+
+
+.whiteTheme div[id^="hd-Admin-Button"]>.hd-btn .max {
+  background:#fff url("../images/hd-Top-Icon-themeLine/hd-icon-max.svg");
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.whiteTheme div[id^="hd-Admin-Button"]>.hd-btn .mini {
+  background:#fff url("../images/hd-Top-Icon-themeLine/hd-icon-mini.svg");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 16px;
+  display: none;
+}
+
+.whiteTheme div[id^="hd-Admin-Button"]>.hd-btn .volume {
+  background:#fff url("../images/hd-Top-Icon-themeLine/hd-icon-volumn.svg");
+  background-repeat: no-repeat;
+  background-position: center;
+  display: none;
+}
+
+.whiteTheme div[id^="hd-Admin-Button"]>.hd-btn .mute {
+  background:#fff url("../images/hd-Top-Icon-themeLine/hd-icon-mute.svg");
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.whiteTheme div[id^="hd-Admin-Button"]>.hd-btn .setting {
+  background:#fff url("../images/hd-Top-Icon-themeLine/hd-icon-setting.svg");
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.whiteTheme div[id^="hd-Admin-Button"]>.hd-btn .setEdit {
+  background:#fff url("../images/hd-Top-Icon-themeLine/hd-icon-set-edit.svg");
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.whiteTheme div[id^="hd-Admin-Button"]>.hd-btn .setEditOn {
+  background:#fff url("../images/hd-Top-Icon-themeLine/hd-icon-set-edit-on.svg");
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.whiteTheme .panel-set{
+  background:url("../../assets/images/hd-Section-Tit-Icon/Set-whitemode.svg") no-repeat;
+  -webkit-background-size: contain;
+  background-size: contain;
+}
+.whiteTheme .panel-delet{
+  background:url("../../assets/images/hd-Section-Tit-Icon/Delete-whitemode.svg") no-repeat;
+  -webkit-background-size: contain;
+  background-size: contain;
+}
+.whiteTheme .panel-edit{
+  background:url("../../assets/images/hd-Section-Tit-Icon/Edit-whitemode.svg") no-repeat;
+  -webkit-background-size: contain;
+  background-size: contain;
+}
+.whiteTheme .panel-refre{
+  background:url("../../assets/images/hd-Section-Tit-Icon/Refresh-whitemode.svg") no-repeat;
+  -webkit-background-size: contain;
+  background-size: contain;
+}
+
+/*====================
+  위젯
+====================*/
+
+
+#dashMain .widgetBox {
+  background:#0b0e13
+}
+
+
+/*====================
+  jqx css
+====================*/
+
+
+.widgetItemBox .jqx-widget-header {
+  background: #434343;
+}
+
+.widgetItemBox .jqx-widget-content {
+  background: transparent;
+  border: transparent;
+  color: #fff;
+}
+
+.hd-section-content .jqx-widget-content{background:transparent!important}/* 최소화했을경우 line 생김 제거 */
+
+#dashMain .hd-top-menu {
+
+  background:#1B1E23;
+  border-bottom:1px solid #3B3F47;
+}
+.whiteTheme .jqx-scrollbar-thumb-state-normal{border:1px solid #bdc4d6 !important}
+
+/*====================
+ 그리드
+====================*/
+.whiteTheme .hd-section-content .jqx-widget-header{background:#dde6f2;color:#354359;border-color:#bdc4d6}
+.whiteTheme .hd-section-content .jqx-widget .jqx-grid-cell{border-right:1px solid #bdc4d6}
+.whiteTheme .jqx-grid-content div[role="row"]{color:#fff;border-color:#bdc4d6}
+.whiteTheme .jqx-grid-content div[role="row"]:nth-child(odd) {
+  background:#fff !important;
+}
+
+.whiteTheme .jqx-grid-content div[role="row"]:nth-child(even) {
+  background: #f0f4f9 !important;
+
+}
+/*.jqx-grid-content div[role="row"]:nth-child(even):hover{background:red!important}*/
+
+.whiteTheme .jqx-widget {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.whiteTheme .jqx-grid-cell {
+  border-color: #bdc4d6!important;
+  color: #555;
+}
+
+.whiteTheme .jqx-grid-column-header {
+  border-color: #bdc4d6 !important;
+}
+
+.whiteTheme .jqx-grid-group-cell {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.whiteTheme .itemBox > div[id*="highchart"]{background:#fff}
+
+.whiteTheme .map-grp > div {
+    background-color: #1C6ECE;
+}

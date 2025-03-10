@@ -1,0 +1,210 @@
+@charset "UTF-8";
+/*==================
+
+ highcharts - dark.css
+
+ 2024.08.30 //현재 블루값과 동일
+
+ ==================*/
+/* Series options */
+/* Default colors */
+.darkTheme .highcharts-color-0 {
+  fill: #7786D8;
+  /*stroke: #7786d8;*/
+}
+
+.darkTheme .highcharts-color-1 {
+  fill: #64B2F8;
+  /*stroke: #64B2F8;*/
+}
+
+.darkTheme .highcharts-color-2 {
+  fill: #78D2C7;
+  /*stroke: #78D2C7;*/
+}
+
+.darkTheme .highcharts-color-3 {
+  fill: #B7DB89;
+  /*stroke: #B7DB89;*/
+}
+
+.darkTheme .highcharts-color-4 {
+  fill: #DDE74D;
+  /*stroke: #DDE74D;*/
+}
+
+.darkTheme .highcharts-color-5 {
+  fill: #D781B9;
+  /*stroke: #D781B9;*/
+}
+
+.darkTheme .highcharts-color-6 {
+  fill: #AB93C5;
+  /*stroke: #AB93C5;*/
+}
+
+.darkTheme .highcharts-color-7 {
+  fill: #2A398B;
+  /*stroke: #2A398B;*/
+}
+.darkTheme .highcharts-color-8 {
+  fill: #1765AB;
+  /*stroke: #1765AB;*/
+}
+
+.darkTheme .highcharts-color-9 {
+  fill: #2B857A;
+  /*stroke: #2B857A;*/
+}
+
+.darkTheme .highcharts-color-10 {
+  fill: #6A8E3C;
+  /*stroke: #aaeeee;*/
+}
+
+.darkTheme .highcharts-area {
+  fill-opacity: 0.75;
+  stroke-width: 0;
+}
+
+.darkTheme .highcharts-markers {
+  stroke-width: 1px;
+  /*stroke: #2a2a2b;*/
+}
+
+.darkTheme .highcharts-point {
+  stroke-width: 1px;
+}
+
+.darkTheme .highcharts-dense-data .highcharts-point {
+  stroke-width: 0;
+}
+
+.darkTheme .highcharts-data-label {
+  font-size: 0.9em;
+  font-weight: bold;
+}
+
+.darkTheme .highcharts-data-label-box {
+  fill: none;
+  stroke-width: 0;
+}
+
+.darkTheme .highcharts-data-label text, text.highcharts-data-label {
+  fill: #B0B0B3;
+}
+
+.darkTheme .highcharts-data-label-connector {
+  fill: none;
+}
+
+.darkTheme .highcharts-halo {
+  fill-opacity: 0.25;
+  stroke-width: 0;
+}
+
+.darkTheme .highcharts-series:not(.highcharts-pie-series) .highcharts-point-select {
+  fill: #606063;
+  /*stroke: #fff;*/
+}
+
+.darkTheme .highcharts-column-series rect.highcharts-point {
+  /*stroke: #2a2a2b;*/
+}
+
+.darkTheme .highcharts-column-series .highcharts-point {
+  transition: fill-opacity 250ms;
+}
+
+.darkTheme .highcharts-column-series .highcharts-point-hover {
+  fill-opacity: 0.75;
+  transition: fill-opacity 50ms;
+}
+
+.darkTheme .highcharts-pie-series .highcharts-point {
+  stroke-linejoin: round;
+  /*stroke: #2a2a2b;*/
+}
+
+.darkTheme .highcharts-pie-series .highcharts-point-hover {
+  fill-opacity: 0.75;
+  transition: fill-opacity 50ms;
+}
+
+.darkTheme .highcharts-funnel-series .highcharts-point {
+  stroke-linejoin: round;
+  /*stroke: #2a2a2b;*/
+}
+
+.darkTheme .highcharts-funnel-series .highcharts-point-hover {
+  fill-opacity: 0.75;
+  transition: fill-opacity 50ms;
+}
+
+.darkTheme .highcharts-funnel-series .highcharts-point-select {
+  fill: inherit;
+  stroke: inherit;
+}
+
+.darkTheme .highcharts-pyramid-series .highcharts-point {
+  stroke-linejoin: round;
+  /*stroke: #2a2a2b;*/
+}
+
+.darkTheme .highcharts-pyramid-series .highcharts-point-hover {
+  fill-opacity: 0.75;
+  transition: fill-opacity 50ms;
+}
+
+.darkTheme .highcharts-pyramid-series .highcharts-point-select {
+  fill: inherit;
+  stroke: inherit;
+}
+
+.darkTheme .highcharts-solidgauge-series .highcharts-point {
+  stroke-width: 0;
+}
+
+.darkTheme .highcharts-treemap-series .highcharts-point {
+  stroke-width: 1px;
+  /*stroke: #707073;*/
+  transition: stroke 250ms, fill 250ms, fill-opacity 250ms;
+}
+
+.darkTheme .highcharts-treemap-series .highcharts-point-hover {
+  /*stroke: #666;*/
+  transition: stroke 25ms, fill 25ms, fill-opacity 25ms;
+}
+
+.darkTheme .highcharts-treemap-series .highcharts-above-level {
+  display: none;
+}
+
+.darkTheme .highcharts-treemap-series .highcharts-internal-node {
+  fill: none;
+}
+
+.darkTheme .highcharts-treemap-series .highcharts-internal-node-interactive {
+  fill-opacity: 0.15;
+  cursor: pointer;
+}
+
+.darkTheme .highcharts-treemap-series .highcharts-internal-node-interactive:hover {
+  fill-opacity: 0.75;
+}
+
+/* Legend */
+.darkTheme .highcharts-legend-box {
+  fill: none;
+  stroke-width: 0;
+}
+
+.darkTheme .highcharts-legend-item text {
+  fill: #E0E0E3;
+  font-weight: bold;
+  font-size: 1em;
+  cursor: pointer;
+  stroke-width: 0;
+}
+
+.darkTheme .highcharts-no-data  text{color:#fff!important;fill:#fff!important}

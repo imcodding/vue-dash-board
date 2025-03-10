@@ -1,0 +1,63 @@
+@charset "UTF-8";
+/*==================
+
+ highcharts - blue.css
+
+ ==================*/
+.highcharts-axis-labels{font-family: Malgun Gothic,'맑은고딕',Verdana, Helvetica, Sans-Serif;}
+.highcharts-legend-item tspan, .highcharts-bar-series tspan{fill:#fff; color:#fff;stroke-width: 2px;}
+/*.highcharts-legend-item tspan, .highcharts-bar-series tspan, .highcharts-color-0 tspan, .highcharts-series-0  tspan{fill:#fff; color:#fff;stroke-width: 2px;}*/
+/*.highcharts-legend-item, .highcharts-bar-series, .highcharts-color-1, .highcharts-series-1 tspan {fill:#fff; color:#fff;}*/
+
+.highcharts-axis-labels, .highcharts-xaxis-labels tspan {fill:#fff; color:#fff;}
+.highcharts-axis-labels, .highcharts-xaxis-labels text {font-size:14px!important;fill:#fff!important; color:#fff!important;}
+.highcharts-axis-labels, .highcharts-yaxis-labels tspan {fill:#fff; color:#fff;}
+.highcharts-axis-labels, .highcharts-yaxis-labels text {fill:#fff!important; color:#fff!important;font-weight:normal;font-size:10px!important}
+
+/*.highcharts-label tspan, .highcharts-no-data tspan{fill:#000; color:#000}*/
+
+.highcharts-background {fill:transparent!important;}
+
+.highcharts-grid-line { stroke:none!important;}
+
+.highcharts-data-labels, .highcharts-series-0, .highcharts-solidgauge-series, .highcharts-tracker span {color:#fff!important;font-weight:normal!important}
+/*.highcharts-data-labels text{font-weight:normal!important;}*/
+
+.highcharts-axis-line{stroke:rgba(255,255,255,0.6)}
+
+.grid-stack > .grid-stack-item > .grid-stack-item-content {  color: #fff;  text-align: center; left: 5px; right: 0px;  border: 1px solid #606060;}
+
+.highcharts-legend-navigation{fill:#fff}
+
+.highcharts-pieCenterText {font-size: 26px; fill: #fff}
+
+/*.highcharts-point {stroke:transparent;}*/
+.highcharts-legend-item text{fill:#fff!important;font-size:12px!important;font-family: "Malgun Gothic", "Lucida Sans Unicode", Arial, Helvetica, sans-serif; }
+
+/* Tooltip */
+.highcharts-tooltip {
+    cursor: default;
+    pointer-events: none;
+    white-space: nowrap;
+    transition: stroke 150ms;
+}
+
+.highcharts-tooltip text {
+    fill: #E0E0E3;
+}
+
+.highcharts-tooltip .highcharts-header {
+    font-size: 0.85em;
+}
+
+.highcharts-tooltip-box {
+    stroke-width: 2px;
+    fill-opacity: 0.85;
+}
+
+.highcharts-tooltip-box .highcharts-label-box {
+    fill-opacity: 0.85;
+}
+
+.highcharts-tooltip tspan {fill:#000; color:#000;}
+.highcharts-tooltip tspan {font-family: "Malgun Gothic", "Lucida Sans Unicode", Arial, Helvetica, sans-serif; }

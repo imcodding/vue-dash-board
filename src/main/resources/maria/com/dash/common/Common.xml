@@ -1,0 +1,604 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="Common">
+
+    <!-- ==============================================
+        토폴로지
+    =============================================== -->
+
+    <sql id="selectMapUserId">
+        (
+        SELECT	CASE ISSHARE
+        WHEN 1 THEN IF(ISNULL(PARENT_ID), '', PARENT_ID)
+        ELSE USER_ID
+        END AS USER_ID
+        FROM 	COM_USER
+        WHERE 	USER_ID = #{userId}
+        )
+    </sql>
+
+    <!-- ==============================================
+         공통
+    =============================================== -->
+
+    <!-- 권한그룹 목록 조회 -->
+    <sql id="selectAuthGrpNos">
+        (SELECT
+        DISTINCT SUB_NO
+        FROM
+        NT_CFG_LEAF
+        WHERE	GRP_NO IN (
+        SELECT NT_GRP_NO
+        FROM COM_AUTH_GROUP_SUBGRP
+        WHERE AUTH_GRP_NO = #{authGrpNo})
+        UNION ALL
+        SELECT
+        DISTINCT SUB_NO
+        FROM	NT_CFG_GRP_LEAF
+        WHERE	GRP_NO IN (
+        SELECT NT_GRP_NO
+        FROM COM_AUTH_GROUP_SUBGRP
+        WHERE AUTH_GRP_NO = #{authGrpNo}))
+    </sql>
+
+    <!-- 기본그룹(GRP_TYPE=1) 대상으로 권한 그룹 목록 조회 -->
+    <sql id="selectAuthGrpNosForDefGrp">
+        (
+        SELECT	DISTINCT SUB_NO
+        FROM	NT_CFG_LEAF G1, COM_AUTH_GROUP_SUBGRP G2
+        WHERE	G1.GRP_NO = G2.NT_GRP_NO
+        AND 	G2.AUTH_GRP_NO = #{authGrpNo}
+        )
+    </sql>
+
+    <!-- 조회그룹 목록 조회 -->
+    <sql id="selectSearchGrpNos">
+        (
+        SELECT	GRP_NO
+        FROM	CM_SEARCH_GROUP _GRP
+        WHERE	GRP_NO = #{grpNo}
+        UNION ALL
+        SELECT GRP_NO FROM (
+        SELECT	GET_LVL_CM_SEARCH_GROUP_LEAF() GRP_NO
+        FROM		(
+        SELECT	@start_with := #{grpNo}, @id := @start_with, @level := 0
+        ) vars, CM_SEARCH_GROUP _GRP
+        WHERE	@id IS NOT NULL
+        ) SRP
+        WHERE GRP_NO IS NOT NULL
+        )
+    </sql>
+
+    <!--===========================================
+        좌측 그룹탭에 따른 장비목록을 조회
+        필수 파라미터 :
+            grpType		    |	그룹타입				|	(DEFAULT | SEARCH)
+            itemKind		|	트리노드타입			|	(GROUP or DEV_KIND2)
+            sIp				|	검색조건IP			|	장비IP
+            sDevName	    |	검색조건장비명		    |	장비명
+            userId			|	세션사용자ID			|	로그인 사용자ID
+     ============================================ -->
+    <sql id="selectDevListForGrpTab">
+        <choose>
+            <when test="grpType == 'SEARCH'">
+                SELECT
+                SDEV.GRP_NAME, DEV.*
+                FROM CM_DEV10 DEV,
+                (
+                SELECT
+                SGRP.GRP_NAME, SDEV.*
+                FROM CM_SEARCH_DEV SDEV,
+                (
+                SELECT
+                *
+                FROM CM_SEARCH_GROUP
+                <if test="itemKind == 'GROUP'">
+                    WHERE GRP_NO IN
+                    <include refid="Common.selectSearchGrpNos"/>
+                </if>
+                ) SGRP
+                WHERE SDEV.GRP_NO = SGRP.GRP_NO
+                ) SDEV
+                WHERE DEV.MNG_NO = SDEV.MNG_NO
+                AND DEV.GRP_NO IN
+                <include refid="Common.selectAuthGrpNosForDefGrp"/>
+                <if test="_parameter.containsKey('itemKind') and itemKind != 'GROUP'">
+                    AND DEV.MNG_NO = #{grpNo}
+                </if>
+                <if test="_parameter.containsKey('sIp') and sIp != null and sIp != ''">
+                    AND DEV.DEV_IP LIKE CONCAT('%', #{sIp}, '%')
+                </if>
+                <if test="_parameter.containsKey('sDevName') and sDevName != null and sDevName != ''">
+                    AND (
+                    UPPER(DEV.USER_DEV_NAME) LIKE CONCAT('%', UPPER(#{sDevName}), '%') OR UPPER(DEV.DEV_NAME) LIKE CONCAT('%', UPPER(#{sDevName}), '%')
+                    )
+                </if>
+                <if test="_parameter.containsKey('sDevKind2') and sDevKind2 != null and sDevKind2 != ''">
+                    AND UPPER(IF(ISNULL(DEV.DEV_KIND2) OR DEV.DEV_KIND2='', DEV.DEV_KIND2, DEV.DEV_KIND2)) LIKE
+                    CONCAT('%', UPPER(#{sDevKind2}), '%')
+                </if>
+                <if test="_parameter.containsKey('sVendor') and sVendor != null and sVendor != ''">
+                    AND UPPER(IF(ISNULL(DEV.VENDOR) OR DEV.VENDOR='', DEV.VENDOR, DEV.VENDOR)) LIKE CONCAT('%',UPPER(#{sVendor}), '%')
+                </if>
+                <if test="_parameter.containsKey('sModel') and sModel != null and sModel != ''">
+                    AND UPPER(IF(ISNULL(DEV.MODEL) OR DEV.MODEL='', DEV.MODEL, DEV.MODEL)) LIKE CONCAT('%',UPPER(#{sModel}), '%')
+                </if>
+            </when>
+            <when test="grpType == 'IF'">
+                SELECT
+                GRP.GRP_NO, GRP.GRP_NAME,
+                DEV.DEV_NAME, DEV.USER_DEV_NAME,
+                DEV.DEV_IP, DEV.DEV_KIND1, DEV.DEV_KIND2, DEV.VENDOR, DEV.MODEL,
+                DEV.ENG_NO, DEV.IS_MAIN, DEV.PERF_POLL, DEV.ICMP_POLL, DEV.DEV_LOCATION,
+                IFGRP.MNG_NO, IFGRP.IF_IDX
+                FROM
+                CM_DEV10 DEV, CM_IF_GROUP IFGRP,
+                NT_CFG_GRP_LEAF LEAF, NT_CFG_GROUP GRP
+                WHERE
+                GRP.GRP_TYPE = 8
+                AND IFGRP.GRP_NO = GRP.GRP_NO
+                AND IFGRP.GRP_NO = LEAF.SUB_NO
+                AND LEAF.GRP_NO = #{grpNo}
+                AND DEV.MNG_NO = IFGRP.MNG_NO
+                <if test="_parameter.containsKey('devNo') and devNo != null and devNo != '' and devNo != -1">
+                    AND IFGRP.MNG_NO = #{devNo}
+                </if>
+                <if test="_parameter.containsKey('ifIdx') and ifIdx != null and ifIdx != '' and ifIdx != -1">
+                    AND IFGRP.IF_IDX = #{ifIdx}
+                </if>
+                <if test="_parameter.containsKey('sIp') and sIp != null and sIp != ''">
+                    AND DEV.DEV_IP LIKE CONCAT('%', #{sIp}, '%')
+                </if>
+                <if test="_parameter.containsKey('sDevName') and sDevName != null and sDevName != ''">
+                    AND (
+                    UPPER(DEV.USER_DEV_NAME) LIKE CONCAT('%', UPPER(#{sDevName}), '%') OR UPPER(DEV.DEV_NAME) LIKE CONCAT('%', UPPER(#{sDevName}), '%')
+                    )
+                </if>
+                <if test="_parameter.containsKey('sDevKind2') and sDevKind2 != null and sDevKind2 != ''">
+                    AND UPPER(IF(ISNULL(DEV.DEV_KIND2) OR DEV.DEV_KIND2='', DEV.DEV_KIND2, DEV.DEV_KIND2)) LIKE
+                    CONCAT('%', UPPER(#{sDevKind2}), '%')
+                </if>
+                <if test="_parameter.containsKey('sVendor') and sVendor != null and sVendor != ''">
+                    AND UPPER(IF(ISNULL(DEV.VENDOR) OR DEV.VENDOR='', DEV.VENDOR, DEV.VENDOR)) LIKE CONCAT('%',
+                    UPPER(#{sVendor}), '%')
+                </if>
+                <if test="_parameter.containsKey('sModel') and sModel != null and sModel != ''">
+                    AND UPPER(IF(ISNULL(DEV.MODEL) OR DEV.MODEL='', DEV.MODEL, DEV.MODEL)) LIKE CONCAT('%',
+                    UPPER(#{sModel}), '%')
+                </if>
+            </when>
+            <when test="grpType == 'DEFAULT'">
+                <choose>
+                    <when test="itemKind == 'GROUP'">
+                        SELECT LEAF.SUB_NAME AS GRP_NAME, DEV.*
+                        FROM CM_DEV10 DEV, NT_CFG_GROUP GRP, NT_CFG_LEAF LEAF
+                        WHERE DEV.GRP_NO = LEAF.SUB_NO
+                        AND GRP.GRP_NO = LEAF.GRP_NO
+                        AND GRP.GRP_NO = #{grpNo}
+                        AND DEV.DEV_KIND1 IN ('DEV', 'SVR', 'VSVR')
+                    </when>
+                    <otherwise>
+                        SELECT GRP.GRP_NAME, DEV.*
+                        FROM CM_DEV10 DEV, NT_CFG_GROUP GRP
+                        WHERE DEV.GRP_NO = GRP.GRP_NO
+                        AND DEV.MNG_NO = #{grpNo}
+                        AND DEV.DEV_KIND1 IN ('DEV', 'SVR', 'VSVR')
+                    </otherwise>
+                </choose>
+                <if test="_parameter.containsKey('sIp') and sIp != null and sIp != ''">
+                    AND DEV.DEV_IP LIKE CONCAT('%', #{sIp}, '%')
+                </if>
+                <if test="_parameter.containsKey('sDevName') and sDevName != null and sDevName != ''">
+                    AND (UPPER(DEV.USER_DEV_NAME) LIKE CONCAT('%', UPPER(#{sDevName}), '%') OR UPPER(DEV.DEV_NAME) LIKE CONCAT('%', UPPER(#{sDevName}), '%'))
+                </if>
+                <if test="_parameter.containsKey('sDevKind2') and sDevKind2 != null and sDevKind2 != ''">
+                    AND UPPER(IF(ISNULL(DEV.DEV_KIND2) OR DEV.DEV_KIND2='', DEV.DEV_KIND2, DEV.DEV_KIND2)) LIKE CONCAT('%', UPPER(#{sDevKind2}), '%')
+                </if>
+                <if test="_parameter.containsKey('sVendor') and sVendor != null and sVendor != ''">
+                    AND UPPER(IF(ISNULL(DEV.VENDOR) OR DEV.VENDOR='', DEV.VENDOR, DEV.VENDOR)) LIKE CONCAT('%',UPPER(#{sVendor}), '%')
+                </if>
+                <if test="_parameter.containsKey('sModel') and sModel != null and sModel != ''">
+                    AND UPPER(IF(ISNULL(DEV.MODEL) OR DEV.MODEL='', DEV.MODEL, DEV.MODEL)) LIKE CONCAT('%',UPPER(#{sModel}), '%')
+                </if>
+            </when>
+            <otherwise>
+                SELECT
+                GRP.GRP_NAME, DEV.*
+                FROM CM_DEV10 DEV, NT_CFG_GROUP GRP
+                WHERE DEV.GRP_NO = GRP.GRP_NO
+                AND GRP.GRP_NO IN
+                <include refid="Common.selectAuthGrpNos"/>
+                <if test="_parameter.containsKey('mngNo')">
+                    AND DEV.MNG_NO = #{mngNo}
+                </if>
+            </otherwise>
+        </choose>
+    </sql>
+
+    <!--===========================================
+        좌측 그룹탭에 따른 AP 목록(ip, 장비명 입력)을 조회
+        필수 파라미터 :
+            grpType		|	그룹타입				|	(DEFAULT | SEARCH)
+            itemKind		|	트리노드타입			|	(GROUP or DEV_KIND2)
+            sIp				|	검색조건IP			|	장비IP
+            sDevName	|	검색조건장비명		|	장비명
+            userId			|	세션사용자ID			|	로그인 사용자ID
+     ============================================ -->
+    <sql id="selectDevListForGrpTab_AP">
+        <choose>
+            <when test="grpType == 'SEARCH'">
+                SELECT DISTINCT SDEV.GRP_NAME, DEV.*, CDAP.AP_NO
+                FROM CM_DEV10 DEV, CM_DEV_AP CDAP,
+                (
+                SELECT
+                SGRP.GRP_NAME, SDEV.*
+                FROM CM_SEARCH_DEV SDEV,
+                (
+                SELECT *
+                FROM CM_SEARCH_GROUP
+                <if test="itemKind == 'GROUP'">
+                    WHERE GRP_NO IN
+                    <include refid="Common.selectSearchGrpNos"/>
+                </if>
+                ) SGRP
+                WHERE SDEV.GRP_NO = SGRP.GRP_NO
+                ) SDEV
+                WHERE DEV.MNG_NO = CDAP.MNG_NO
+                AND DEV.MNG_NO = SDEV.MNG_NO
+                AND DEV.GRP_NO IN
+                <include refid="Common.selectAuthGrpNosForDefGrp"/>
+                <if test="_parameter.containsKey('itemKind') and itemKind != 'GROUP'">
+                    AND DEV.MNG_NO = #{grpNo}
+                </if>
+                <if test="_parameter.containsKey('sIp') and sIp != null and sIp != ''">
+                    AND CDAP.AP_IP LIKE CONCAT('%', #{sIp}, '%')
+                </if>
+                <if test="_parameter.containsKey('sDevName') and sDevName != null and sDevName != ''">
+                    AND UPPER(CDAP.AP_NAME) LIKE CONCAT('%', UPPER(#{sDevName}), '%')
+                </if>
+                <if test="_parameter.containsKey('sDevKind2') and sDevKind2 != null and sDevKind2 != ''">
+                    AND UPPER(IF(ISNULL(DEV.DEV_KIND2) OR DEV.DEV_KIND2='', DEV.DEV_KIND2, DEV.DEV_KIND2)) LIKE
+                    CONCAT('%', UPPER(#{sDevKind2}), '%')
+                </if>
+                <if test="_parameter.containsKey('sVendor') and sVendor != null and sVendor != ''">
+                    AND UPPER(IF(ISNULL(DEV.VENDOR) OR DEV.VENDOR='', DEV.VENDOR, DEV.VENDOR)) LIKE CONCAT('%',
+                    UPPER(#{sVendor}), '%')
+                </if>
+                <if test="_parameter.containsKey('sModel') and sModel != null and sModel != ''">
+                    AND UPPER(IF(ISNULL(DEV.MODEL) OR DEV.MODEL='', DEV.MODEL, DEV.MODEL)) LIKE CONCAT('%',
+                    UPPER(#{sModel}), '%')
+                </if>
+            </when>
+            <when test="grpType == 'IF'">
+                SELECT DISTINCT
+                GRP.GRP_NO, GRP.GRP_NAME,
+                DEV.DEV_NAME, DEV.USER_DEV_NAME,
+                DEV.DEV_IP, DEV.DEV_KIND1, DEV.DEV_KIND2, DEV.VENDOR, DEV.MODEL,
+                DEV.ENG_NO, DEV.IS_MAIN, DEV.PERF_POLL, DEV.ICMP_POLL,
+                IFGRP.MNG_NO, IFGRP.IF_IDX
+                FROM
+                CM_DEV10 DEV, CM_IF_GROUP IFGRP,
+                NT_CFG_GRP_LEAF LEAF, NT_CFG_GROUP GRP
+                WHERE GRP.GRP_TYPE = 8
+                AND IFGRP.GRP_NO = GRP.GRP_NO
+                AND IFGRP.GRP_NO = LEAF.SUB_NO
+                AND LEAF.GRP_NO = #{grpNo}
+                AND DEV.MNG_NO = IFGRP.MNG_NO
+                <if test="_parameter.containsKey('sIp') and sIp != null and sIp != ''">
+                    AND DEV.DEV_IP LIKE CONCAT('%', #{sIp}, '%')
+                </if>
+                <if test="_parameter.containsKey('sDevName') and sDevName != null and sDevName != ''">
+                    AND (
+                    UPPER(DEV.USER_DEV_NAME) LIKE CONCAT('%', UPPER(#{sDevName}), '%') OR UPPER(DEV.DEV_NAME) LIKE CONCAT('%', UPPER(#{sDevName}), '%')
+                    )
+                </if>
+                <if test="_parameter.containsKey('sDevKind2') and sDevKind2 != null and sDevKind2 != ''">
+                    AND UPPER(IF(ISNULL(DEV.DEV_KIND2) OR DEV.DEV_KIND2='', DEV.DEV_KIND2, DEV.DEV_KIND2)) LIKE
+                    CONCAT('%', UPPER(#{sDevKind2}), '%')
+                </if>
+                <if test="_parameter.containsKey('sVendor') and sVendor != null and sVendor != ''">
+                    AND UPPER(IF(ISNULL(DEV.VENDOR) OR DEV.VENDOR='', DEV.VENDOR, DEV.VENDOR)) LIKE CONCAT('%',
+                    UPPER(#{sVendor}), '%')
+                </if>
+                <if test="_parameter.containsKey('sModel') and sModel != null and sModel != ''">
+                    AND UPPER(IF(ISNULL(DEV.MODEL) OR DEV.MODEL='', DEV.MODEL, DEV.MODEL)) LIKE CONCAT('%',
+                    UPPER(#{sModel}), '%')
+                </if>
+            </when>
+            <when test="grpType == 'DEFAULT'">
+                <choose>
+                    <when test="itemKind == 'GROUP'">
+                        SELECT DISTINCT LEAF.SUB_NAME AS GRP_NAME, DEV.*, CDAP.AP_NO
+                        FROM CM_DEV10 DEV, NT_CFG_GROUP GRP, NT_CFG_LEAF LEAF, CM_DEV_AP CDAP
+                        WHERE DEV.GRP_NO = LEAF.SUB_NO
+                        AND GRP.GRP_NO = LEAF.GRP_NO
+                        AND DEV.MNG_NO = CDAP.MNG_NO
+                        AND GRP.GRP_NO = #{grpNo}
+                        AND DEV.DEV_KIND1 IN ('DEV', 'SVR', 'VSVR')
+                    </when>
+                    <otherwise>
+                        SELECT DISTINCT GRP.GRP_NAME, DEV.*, CDAP.AP_NO
+                        FROM CM_DEV10 DEV, NT_CFG_GROUP GRP, CM_DEV_AP CDAP
+                        WHERE DEV.GRP_NO = GRP.GRP_NO
+                        AND DEV.MNG_NO = CDAP.MNG_NO
+                        AND DEV.MNG_NO = #{grpNo}
+                        AND DEV.DEV_KIND1 IN ('DEV', 'SVR', 'VSVR')
+                    </otherwise>
+                </choose>
+                <if test="_parameter.containsKey('sIp') and sIp != null and sIp != ''">
+                    AND CDAP.AP_IP LIKE CONCAT('%', #{sIp}, '%')
+                </if>
+                <if test="_parameter.containsKey('sDevName') and sDevName != null and sDevName != ''">
+                    AND UPPER(CDAP.AP_NAME) LIKE CONCAT('%', UPPER(#{sDevName}), '%')
+                </if>
+                <if test="_parameter.containsKey('sDevKind2') and sDevKind2 != null and sDevKind2 != ''">
+                    AND UPPER(IF(ISNULL(DEV.DEV_KIND2) OR DEV.DEV_KIND2='', DEV.DEV_KIND2, DEV.DEV_KIND2)) LIKE
+                    CONCAT('%', UPPER(#{sDevKind2}), '%')
+                </if>
+                <if test="_parameter.containsKey('sVendor') and sVendor != null and sVendor != ''">
+                    AND UPPER(IF(ISNULL(DEV.VENDOR) OR DEV.VENDOR='', DEV.VENDOR, DEV.VENDOR)) LIKE CONCAT('%',UPPER(#{sVendor}), '%')
+                </if>
+                <if test="_parameter.containsKey('sModel') and sModel != null and sModel != ''">
+                    AND UPPER(IF(ISNULL(DEV.MODEL) OR DEV.MODEL='', DEV.MODEL, DEV.MODEL)) LIKE CONCAT('%',
+                    UPPER(#{sModel}), '%')
+                </if>
+            </when>
+            <otherwise>
+                SELECT DISTINCT
+                GRP.GRP_NAME, DEV.*, CDAP.AP_NO
+                FROM CM_DEV10 DEV, NT_CFG_GROUP GRP, CM_DEV_AP CDAP
+                WHERE DEV.GRP_NO = GRP.GRP_NO
+                AND DEV.MNG_NO = CDAP.MNG_NO
+                AND GRP.GRP_NO IN
+                <include refid="Common.selectAuthGrpNos"/>
+                <if test="_parameter.containsKey('mngNo')">
+                    AND DEV.MNG_NO = #{mngNo}
+                </if>
+            </otherwise>
+        </choose>
+    </sql>
+
+    <!--===================================== 이벤트 ========================================-->
+    <sql id="selectCommEvtColumns">
+		DATE_FORMAT(CAST(CONCAT(YYYYMMDD, HHMMSS) AS DATETIME), '%Y-%m-%d %H:%i:%s') AS YMDHMS,
+        DATE_FORMAT(CAST(FREE_DATE AS DATETIME), '%Y-%m-%d %H:%i:%s') AS END_YMDHMS,
+        CASE
+            WHEN SRC_TYPE IN ('DEV', 'SVR', 'SYSLOG', 'TRAP', 'UPS', 'RTU', 'REC') THEN
+                CASE
+                    WHEN SRC_TYPE = 'SVR' AND S.CODE = 'FILE_CHECK_00' THEN
+                        CONCAT(IF(ISNULL(S.USER_DEV_NAME) OR S.USER_DEV_NAME = '', S.DEV_NAME, S.USER_DEV_NAME), '[', S.DEV_IP, '] - ', S.SRC_IDX_TEXT,
+                                ' (', (SELECT CODE_VALUE1
+                                        FROM CM_CODE10
+                                        WHERE CODE_KIND = 'FILE_CHECK'
+                                        AND CODE_ID = (CASE WHEN LOCATE('Timestamp', S.MEMO) > 0 THEN '0'
+                                                            WHEN LOCATE('Size', S.MEMO) > 0 THEN '1'
+                                                            WHEN LOCATE('MD5', S.MEMO) > 0 THEN '2'
+                                                        END) ),
+                                ')' )
+                    WHEN SRC_TYPE = 'SVR' AND (S.CODE = 'FILE_LOG_00' OR SUBSTRING(S.CODE, 1, 2) = 'FS'	OR S.CODE LIKE 'MPROC_%') THEN
+                        CONCAT(IF(ISNULL(S.USER_DEV_NAME) OR S.USER_DEV_NAME = '', S.DEV_NAME, S.USER_DEV_NAME), '[', S.DEV_IP, '] - ', S.SRC_IDX_TEXT)
+                    WHEN (SRC_TYPE IN ('SVR', 'DEV') AND S.CODE IN ('URL_01', 'URL_02') ) THEN
+                        CONCAT(IF(ISNULL(S.USER_DEV_NAME) OR S.USER_DEV_NAME = '', S.DEV_NAME, S.USER_DEV_NAME), '[', S.DEV_IP, ']', ' - Site ', IFNULL(S.MEMO, ''))
+                    WHEN (SRC_TYPE IN ('SVR', 'DEV') AND S.CODE LIKE '%CLI_%' ) THEN
+                            CASE
+                                WHEN IFNULL(S.CAUSE_MEMO, '') != ''	AND IFNULL(S.MEMO, '') != '' THEN
+                                    CONCAT(IF(ISNULL(S.USER_DEV_NAME) OR S.USER_DEV_NAME = '', S.DEV_NAME, S.USER_DEV_NAME), '[', S.DEV_IP, ']', ' ', IFNULL(S.CAUSE_MEMO, ''), '_', IFNULL(S.MEMO, ''))
+                                ELSE
+                                    CONCAT(IF(ISNULL(S.USER_DEV_NAME) OR S.USER_DEV_NAME = '', S.DEV_NAME, S.USER_DEV_NAME), '[', S.DEV_IP, ']', ' ', IFNULL(S.CAUSE_MEMO, ''), IFNULL(S.MEMO, ''))
+                            END
+                    WHEN SRC_TYPE = 'DEV' AND S.CODE IN ('HA_01', 'IPT_CUCM_02') THEN
+                        CONCAT(IF(ISNULL(S.USER_DEV_NAME) OR S.USER_DEV_NAME = '', S.DEV_NAME, S.USER_DEV_NAME), '[', S.DEV_IP, ']', ' ', S.SRC_IDX_TEXT)
+                    WHEN SRC_TYPE = 'DEV' AND S.CODE IN ('PERF_05', 'PERF_06', 'PERF_14', 'PERF_17', 'PERF_18') THEN
+                        CONCAT(IF(ISNULL(S.USER_DEV_NAME) OR S.USER_DEV_NAME = '', S.DEV_NAME, S.USER_DEV_NAME), '[', S.DEV_IP, ']',
+                                  IFNULL(CONCAT(' - ', (SELECT CONCAT(ITEM_NAME, '-', ITEM_IDX)
+                                                         FROM CM_DEV_ITEM_INFO V
+                                                         WHERE MNG_NO = S.SRC_MNG_NO
+                                                         AND MODULE_TMPL_OID_SEQ = S.SRC_IDX
+                                                         AND ITEM_IDX = S.SRC_IDX_TEXT
+                                                         AND EVT_CODE = S.CODE LIMIT 1)), '') )
+                    WHEN S.CODE IN ('PTN_00', 'PTN_01') THEN
+                        (SELECT	CONCAT(IF(ISNULL(S.USER_DEV_NAME) OR S.USER_DEV_NAME = '', S.DEV_NAME, S.USER_DEV_NAME), '[', S.DEV_IP, '] ',
+                                CONCAT_WS(' ', PTN.PART_NAME, PTN.SLOT_NO, IF(ISNULL(PTN.PORT_NO) OR PTN.PORT_NO = '', '', CONCAT('PORT-', PTN.PORT_NO)), PTN.EVENT_NAME))
+                         FROM CM_EVT_PTN_MSPP_TRAP PTN
+                         WHERE PTN.SEQ_NO = S.SEQ_NO
+                         AND PTN.MNG_NO = S.SRC_MNG_NO)
+                    WHEN S.CODE LIKE 'OID_%' THEN
+                        CONCAT(IF(ISNULL(S.USER_DEV_NAME) OR S.USER_DEV_NAME = '', S.DEV_NAME, S.USER_DEV_NAME), '[', S.DEV_IP, ']',
+                              ' - [', (SELECT OID_NAME FROM CM_OID WHERE OID_NO = S.SRC_IDX), ' ', REAL_VAL, '/', LIMIT_VAL , ']')
+                    ELSE
+                        CONCAT(IF(ISNULL(S.USER_DEV_NAME) OR S.USER_DEV_NAME = '', S.DEV_NAME, S.USER_DEV_NAME), '[', S.DEV_IP, ']')
+                    END
+            WHEN SRC_TYPE = 'IF' THEN
+                (SELECT	CONCAT(IF(ISNULL(USER_DEV_NAME) OR USER_DEV_NAME = '', DEV_NAME, USER_DEV_NAME), '[', DEV_IP,'] - ',
+                        IF(ISNULL(USER_IF_NAME) OR USER_IF_NAME = '', IF_NAME, USER_IF_NAME), IF(ISNULL(IF_ALIAS) OR IF_ALIAS = '', '', CONCAT('[', IF_ALIAS, ']')))
+                 FROM CM_DEV10 T1, CM_DEV20 T2
+                 WHERE T1.MNG_NO = S.SRC_MNG_NO
+                 AND T2.IF_IDX = S.SRC_IDX
+                 AND T1.MNG_NO = T2.MNG_NO)
+            WHEN SRC_TYPE = 'GRP' THEN
+                S.GRP_NAME
+            WHEN SRC_TYPE = 'RACK' THEN
+                (SELECT	CONCAT(RACK_NAME, '[', RACK_IP, ':', RACK_PORT, ']' )
+                 FROM S_CM_RACK T1
+                 WHERE T1.RACK_NO = S.SRC_MNG_NO)
+            WHEN SRC_TYPE = 'SUB' THEN
+                (SELECT	CONCAT(SUB_NAME, '[', IP, ']')
+                 FROM NT_CFG_SUBNET
+                 WHERE SUB_NO = S.SRC_SUB_NO)
+            WHEN SRC_TYPE = 'SVC' THEN
+                (SELECT	CONCAT(IF(ISNULL(CD.USER_DEV_NAME) OR CD.USER_DEV_NAME = '', CD.DEV_NAME, CD.USER_DEV_NAME), '[', CD.DEV_IP, ']-', TCS.SVC_NAME, '(', SUBSTRING_INDEX(SVC_INFO , ':' , -1), ')')
+                 FROM CM_DEV10 CD, TB_COM_SERVICE TCS
+                 WHERE CD.MNG_NO = S.SRC_MNG_NO
+                 AND TCS.SVC_NO = S.SRC_SVR_NO
+                 AND TCS.MNG_NO = S.SRC_MNG_NO)
+            WHEN SRC_TYPE = 'L4' THEN
+                CASE
+                    WHEN CODE = 'PERF_24' THEN
+                        CASE
+                            WHEN S.SRC_IDX = 1 THEN
+                                (SELECT CONCAT(IF(ISNULL(USER_DEV_NAME) OR USER_DEV_NAME = '', DEV_NAME, USER_DEV_NAME), '[', T1.CLS_MAP, ']')
+                                 FROM CM_DEV_L4_VIRTUAL_CISCO T1, CM_DEV10 T2
+                                 WHERE T1.MNG_NO = T2.MNG_NO
+                                 AND T1.MNG_NO = S.SRC_MNG_NO
+                                 AND T1.SVR_IDX = S.SRC_IDX_CHAR
+                                 LIMIT 1 )
+                            ELSE
+                                (SELECT	CONCAT(IF(ISNULL(USER_DEV_NAME) OR USER_DEV_NAME = '', DEV_NAME, USER_DEV_NAME), '[', T1.R_IP, ':', T1.R_PORT, ']')
+                                 FROM CM_DEV_L4_INFO T1, CM_DEV10 T2
+                                 WHERE T1.MNG_NO = T2.MNG_NO
+                                 AND T1.MNG_NO = S.SRC_MNG_NO
+                                 AND T1.R_IDX = S.SRC_IDX_CHAR
+                                 LIMIT 1)
+                            END
+                    ELSE
+                        (SELECT	CONCAT(IF(ISNULL(USER_DEV_NAME) OR USER_DEV_NAME = '', DEV_NAME, USER_DEV_NAME), '[', T1.R_IP, ':', T1.R_PORT, ']')
+                         FROM CM_DEV_L4_INFO T1, CM_DEV10 T2
+                         WHERE T1.MNG_NO = T2.MNG_NO
+                         AND T1.MNG_NO = S.SRC_MNG_NO
+                         AND T1.SVR_GRP_IDX = S.SRC_IDX_CHAR
+                         LIMIT 1)
+                    END
+            WHEN SRC_TYPE = 'ESM' THEN
+                CONCAT(IF(ISNULL(S.USER_DEV_NAME) OR S.USER_DEV_NAME = '', S.DEV_NAME, S.USER_DEV_NAME), '[', S.DEV_IP, ']', '-', S.MEMO)
+            WHEN SRC_TYPE = 'ETC' THEN
+                (SELECT	CONCAT(DEV_NAME, '[', IFNULL(DEV_IP, '-'),']')
+                 FROM CM_TM_ETC
+                 WHERE DEV_IP = S.SRC_IP)
+            WHEN SRC_TYPE = 'STAR' THEN
+                CONCAT(IF(ISNULL(S.USER_DEV_NAME) OR S.USER_DEV_NAME = '', S.DEV_NAME, S.USER_DEV_NAME), '[', S.DEV_IP, ']', IF(S.CODE = 'URL_01', CONCAT('- Site ', IFNULL(S.CAUSE_MEMO, '')), ''))
+            WHEN SRC_TYPE = 'DBMS' THEN
+                CONCAT(IF(ISNULL(S.USER_DEV_NAME) OR S.USER_DEV_NAME = '', S.DEV_NAME, S.USER_DEV_NAME), '[', S.DEV_IP, '] - ', S.CAUSE_MEMO)
+            ELSE
+                CONCAT(IF(ISNULL(S.USER_DEV_NAME) OR S.USER_DEV_NAME = '', S.DEV_NAME, S.USER_DEV_NAME), '[', S.DEV_IP, '] - ', 'SRC_TYPE CASE NOT ADDED')
+            END AS SRC_INFO,
+            IF(LIMIT_VAL > 0, CONCAT('[', REPLACE(REAL_VAL, '.00', ''), '/', IFNULL(LIMIT_VAL,''), ']'),'' ) AS EVT_VALUES,
+            CASE
+                WHEN ISNULL(REAL_VAL) THEN ''
+                WHEN REAL_VAL = 0 THEN ''
+                WHEN S.CODE IN ('PERF_05') THEN
+                    CONCAT(CONCAT(' IDX: ', SRC_IDX_TEXT), CONCAT(' [', IF(INSTR(REAL_VAL,'.')= 1, CONCAT(0, REAL_VAL), REAL_VAL), '/', IFNULL(LIMIT_VAL, ''), ']'))
+                ELSE
+                    CONCAT('[', IF(INSTR(REAL_VAL, '.')= 1, CONCAT(0, REAL_VAL), REAL_VAL), '/', IFNULL(LIMIT_VAL, ''), ']')
+            END AS EVT_VALUES_SRC,
+            S.STATUS AS DIS_STATUS,
+            CASE
+                WHEN S.SRC_TYPE = 'GRP' THEN SRC_GRP_NO
+                WHEN S.SRC_TYPE = 'SUB' THEN SRC_SUB_NO
+                ELSE SRC_MNG_NO
+            END AS MNG_NO,
+            CASE
+                WHEN SRC_TYPE IN ('DEV', 'SVR', 'SYSLOG', 'TRAP') THEN
+                    (SELECT DEV_KIND2 FROM CM_DEV10	WHERE MNG_NO = S.SRC_MNG_NO)
+                ELSE SRC_TYPE
+            END AS DEV_KIND2,
+            IFNULL(NULLIF(S.USER_DEV_NAME, ''), S.DEV_NAME) AS DIS_DEV_NAME,
+            IF(S.SRC_TYPE = 'IF',(SELECT IFNULL(NULLIF(USER_IF_NAME, ''), IF_NAME) FROM CM_DEV20 WHERE MNG_NO = S.SRC_MNG_NO AND IF_IDX = S.SRC_IDX), '') AS IF_NAME,
+            IF(S.SRC_TYPE = 'IF',(SELECT IF_ALIAS FROM CM_DEV20	WHERE MNG_NO = S.SRC_MNG_NO	AND IF_IDX = S.SRC_IDX), '') AS IF_ALIAS
+	</sql>
+
+    <!-- 이벤트 현황 리스트 -->
+    <sql id="selectRtEvtDetailList">
+        SELECT S.*,
+        <include refid="Common.selectCommEvtColumns"/>
+        FROM (
+        SELECT A.*, B.GRP_NAME, B.USER_DEV_NAME, B.DEV_NAME, B.DEV_IP, IFNULL(B.IS_MAIN, 0) AS IS_MAIN,
+        CASE
+        WHEN A.SRC_TYPE IN ('DEV','SVR','ESM') THEN
+        IF((SELECT COUNT(*)
+        FROM CM_DEV_HIST T1, CM_JOB_HIST_TARGET T2
+        WHERE DATE_FORMAT(CURRENT_TIMESTAMP, '%Y%m%d%H%i%s') BETWEEN CONCAT(T1.FROM_YYYYMMDD,T1.FROM_HHMMSS)
+        AND CONCAT(T1.TO_YYYYMMDD,T1.TO_HHMMSS)
+        AND T1.KEY_NO = T2.JOB_KEY_NO
+        AND T2.JOB_TYPE = 'DEV'
+        AND T2.MNG_NO = A.SRC_MNG_NO)=0, A.EVT_LEVEL, -2)
+        WHEN A.SRC_TYPE = 'IF' THEN
+        IF(((SELECT COUNT(*)
+        FROM CM_IF_HIST T1, CM_JOB_HIST_TARGET T2
+        WHERE DATE_FORMAT(CURRENT_TIMESTAMP, '%Y%m%d%H%i%s') BETWEEN CONCAT(T1.FROM_YYYYMMDD,T1.FROM_HHMMSS)
+        AND CONCAT(T1.TO_YYYYMMDD,T1.TO_HHMMSS)
+        AND T1.KEY_NO = T2.JOB_KEY_NO
+        AND T2.JOB_TYPE = 'IF'
+        AND T2.MNG_NO = A.SRC_MNG_NO
+        AND T2.IF_IDX = A.SRC_IDX)
+        + (SELECT COUNT(*)
+        FROM CM_DEV_HIST T1, CM_JOB_HIST_TARGET T2
+        WHERE DATE_FORMAT(CURRENT_TIMESTAMP, '%Y%m%d%H%i%s') BETWEEN CONCAT(T1.FROM_YYYYMMDD,T1.FROM_HHMMSS)
+        AND CONCAT(T1.TO_YYYYMMDD,T1.TO_HHMMSS)
+        AND T1.KEY_NO = T2.JOB_KEY_NO
+        AND T2.JOB_TYPE = 'DEV'
+        AND T2.MNG_NO = A.SRC_MNG_NO))=0, A.EVT_LEVEL, -2)
+        ELSE
+        IF(A.PROGRESS_STATE='A', -1, A.EVT_LEVEL)
+        END EVT_LEVEL_TMP
+        FROM CM_EVT A, (<include refid="Common.selectDevListForGrpTab"/>) B
+        WHERE A.SRC_MNG_NO = B.MNG_NO
+        AND A.STATUS = 'C'
+        AND (A.PROGRESS_STATE IS NULL OR A.PROGRESS_STATE != 'S')
+        <!-- 2023.02.24 이벤트 현황에 RTU 이벤트의 그룹 컬럼 값이 나오지 않아서 수정함
+        AND A.SRC_TYPE IN ('DEV', 'IF', 'AP', 'FMS', 'SYSLOG', 'TRAP', 'ESM', 'SVR', 'SVC', 'WAS', 'DBMS', 'ONU', 'UPS')
+        -->
+        AND A.SRC_TYPE IN ('DEV', 'IF', 'RTU', 'SYSLOG', 'TRAP', 'ESM', 'SVR', 'SVC', 'WAS', 'DBMS', 'ONU', 'UPS', 'REC')
+        <if test="_parameter.containsKey('grpType') and grpType == 'IF'">
+            AND A.SRC_IDX = B.IF_IDX
+        </if>
+        UNION ALL
+        <!-- IP 및 장비 입력으로 AP 조회 추가 Query 부분 시작-->
+        SELECT DISTINCT A.*, B.GRP_NAME, B.USER_DEV_NAME, B.DEV_NAME, B.DEV_IP, IFNULL(B.IS_MAIN, 0) AS IS_MAIN,
+        IF(A.PROGRESS_STATE='A', -1, A.EVT_LEVEL) AS EVT_LEVEL_TMP
+        FROM CM_EVT A, (<include refid="Common.selectDevListForGrpTab_AP"/>) B
+        WHERE A.SRC_MNG_NO = B.MNG_NO
+        AND A.SRC_IDX = B.AP_NO
+        AND A.STATUS = 'C'
+        AND (A.PROGRESS_STATE IS NULL OR A.PROGRESS_STATE != 'S')
+        AND A.SRC_TYPE = 'AP'
+        <!-- IP 및 장비 입력으로 AP 조회 추가 Query 부분 종료-->
+        UNION ALL
+        SELECT A.*, '' AS GRP_NAME, '' AS USER_DEV_NAME, '' AS DEV_NAME, '' AS DEV_IP, 0 AS IS_MAIN, 0 AS EVT_LEVEL_TMP
+        FROM CM_EVT A
+        WHERE A.STATUS = 'C'
+        AND (A.PROGRESS_STATE IS NULL OR A.PROGRESS_STATE != 'S')
+        <!-- 2023.02.24 이벤트 현황에 RTU 이벤트의 그룹 컬럼 값이 나오지 않아서 수정함
+        AND A.SRC_TYPE NOT IN ('DEV', 'IF', 'AP', 'FMS', 'SYSLOG', 'TRAP', 'ESM', 'SVR', 'RACK', 'SVC', 'WAS', 'DBMS','ONU', 'UPS')
+        -->
+        AND A.SRC_TYPE NOT IN ('DEV', 'IF', 'AP', 'RTU', 'SYSLOG', 'TRAP', 'ESM', 'SVR', 'RACK', 'SVC', 'WAS', 'DBMS','ONU', 'UPS', 'REC')
+        UNION ALL
+        SELECT A.*, RACK_NAME AS GRP_NAME, '' AS USER_DEV_NAME, RACK_NAME AS DEV_NAME, RACK_IP AS DEV_IP, 0 AS IS_MAIN,
+        IF(A.PROGRESS_STATE='A', -1, A.EVT_LEVEL) AS EVT_LEVEL_TMP
+        FROM CM_EVT A,
+        (SELECT * FROM S_CM_RACK
+        WHERE GRP_NO IN (SELECT DISTINCT SUB_NO
+        FROM NT_CFG_GRP_LEAF
+        WHERE GRP_NO IN ( SELECT NT_GRP_NO FROM COM_AUTH_GROUP_SUBGRP WHERE AUTH_GRP_NO = #{authGrpNo})
+        AND GRP_TYPE = 7
+        )
+        ) B
+        WHERE A.STATUS = 'C'
+        AND A.SRC_MNG_NO = B.RACK_NO
+        AND (A.PROGRESS_STATE IS NULL OR A.PROGRESS_STATE != 'S')
+        AND A.SRC_TYPE = 'RACK'
+        ) S
+        WHERE EVT_LEVEL_TMP != -2
+    </sql>
+
+    <sql id="getProfileEvtCodeList">
+		SELECT
+			A.SYSTEM_CD,
+			A.PROFILE_NO,
+			A.PROFILE_NM,
+			A.POLL_INTERVAL,
+			A.POLL_REPEAT_INTERVAL,
+			A.WATCH_INTERVAL,
+			A.WATCH_REPEAT_INTERVAL,
+			B.EVT_CD AS CODE,
+			B.EVT_NM AS EVT_NAME ,
+			B.EVT_LEVEL,
+			B.EVT_COND AS CODE_TYPE,
+			B.EVT_TYPE,
+			B.OCCUR_DELAY_CNT,
+			B.FREE_DELAY_CNT,
+			B.USE_FLAG,
+			IFNULL( JSON_UNQUOTE( JSON_EXTRACT(B.EXTRA_INFO , '$.LIMIT_DESC') ) , '' ) as LIMIT_DESC,
+			'' AS ENG_EVT_NAME
+		FROM TB_COM_PROFILE A LEFT JOIN TB_COM_EVTCODE B ON (A.SYSTEM_CD = B.SYSTEM_CD AND A.PROFILE_NO = B.PROFILE_NO)
+	</sql>
+</mapper>

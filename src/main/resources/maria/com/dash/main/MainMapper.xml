@@ -1,0 +1,307 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dash.main.persistence.MainMapper">
+
+    <select id="selectRefreshTime" resultType="CamelHashMap">
+        SELECT value
+        FROM cm_dash_conf
+        WHERE dash_key = 'REFRESH_TIME'
+    </select>
+    
+    <update id="updateRefreshTime">
+        INSERT INTO cm_dash_conf(user_id, dash_grp_key, dash_key, value)
+        VALUES(#{userId}, 'DASH_MAIN', 'REFRESH_TIME', #{seconds})
+        ON DUPLICATE KEY
+        UPDATE value = #{seconds}
+    </update>
+
+    <!--  메인 타이틀 설정 팝업. 해당 row는 기초데이터로 관리 필요  -->
+    <update id="updateMainTitle">
+        UPDATE widget_dash_resize SET
+          name = #{mainTitle}
+        WHERE type = 'TITLE' AND tab_seq = #{tabSeq}
+    </update>
+
+    <select id="selectWidgetDashList" resultType="CamelHashMap">
+        SELECT
+          item_seq      AS item_seq,
+          item_position AS item_position,
+          item_idx      AS item_idx,
+          item_id       AS id,
+          item_id       AS wref,
+          item_name     AS item_name,
+          item_display  AS display,
+          position_left,
+          position_top,
+          position_width,
+          position_height
+        FROM widget_dash
+        ORDER BY item_position , item_idx
+    </select>
+
+    <update id="updatePanelTitle">
+        UPDATE widget_dash_resize SET
+          name = #{name}
+        WHERE seq_no = #{seqNo}
+    </update>
+
+    <!-- 리사이징 -->
+    <select id="selectWidgetResizeList" resultType="CamelHashMap">
+        SELECT
+            seq_no AS item_seq,
+            x AS `left`,
+            y AS `top`,
+            x,
+            y,
+            width AS width,
+            height AS `height`,
+            width AS width_test,
+            id,
+            id AS wref,
+            `name`,
+            display,
+            conf,
+            `type`,
+            tab_seq
+        FROM widget_dash_resize
+        WHERE tab_seq = #{tabSeq}
+        ORDER BY seq_no
+    </select>
+
+    <update id="insertWidgetResizeList">
+        DELETE FROM widget_dash_resize
+        WHERE tab_seq = #{tabSeq}
+        AND seq_no NOT IN (
+        <foreach collection="list" item="item" separator=",">
+            #{item.itemSeq}
+        </foreach>
+        );
+        <foreach collection="list" item="item">
+            INSERT INTO widget_dash_resize
+            (seq_no, x, y, width, height, id, `name`, display, conf, `type`, tab_seq)
+            VALUES(
+                #{item.itemSeq},
+                #{item.left},
+                #{item.top},
+                #{item.width},
+                #{item.height},
+                #{item.id},
+                #{item.name},
+                #{item.display},
+                #{item.conf},
+                #{item.type},
+                #{tabSeq}
+            )
+            ON DUPLICATE KEY
+            UPDATE
+                x = #{item.left},
+                y = #{item.top},
+                width = #{item.width},
+                height = #{item.height},
+                id = #{item.id},
+                `name` = #{item.name},
+                display = #{item.display},
+                conf = #{item.conf},
+                `type` = #{item.type},
+                tab_seq = #{tabSeq}
+            ;
+        </foreach>
+    </update>
+
+    <!--  기본설정(타이틀, 새로고침 주기) 타이틀 위젯화로 인해 쿼리 union 처리   -->
+    <select id="selectDashConf" resultType="CamelHashMap">
+        SELECT
+            dash_key,
+            value
+        FROM cm_dash_conf
+        WHERE dash_grp_key = 'DASH_MAIN'
+        UNION  ALL
+        SELECT
+          'MAIN_TITLE' AS dash_key,
+          name AS value
+        FROM widget_dash_resize
+        WHERE TYPE IN ('TITLE')
+    </select>
+
+    <update id="updateWidgetItemConf">
+        UPDATE widget_dash_resize SET
+          conf = #{conf},
+          name = #{name}
+        WHERE seq_no = #{seqNo}
+    </update>
+
+    <select id="selectBasicWidget" resultType="CamelHashMap">
+        SELECT
+          *
+        FROM widget_dash_resize
+        WHERE type IN ('TAB', 'TITLE', 'LOGO', 'TIMESET')
+        AND tab_seq = #{tabSeq}
+    </select>
+
+    <insert id="insertBasicWidget">
+          <foreach collection="setDataList" item="item">
+          INSERT IGNORE INTO widget_dash_resize
+              (x, y, width, height, `name`, `type`, tab_seq)
+            VALUES
+              (
+                #{item.x},
+                #{item.y},
+                #{item.width},
+                #{item.height},
+                #{item.name},
+                #{item.type},
+                #{tabSeq}
+              );
+        </foreach>
+    </insert>
+
+    <!--  evt 관련 설정(색상, 등급별 명칭)   -->
+    <select id="selectEvtConf" resultType="CamelHashMap">
+        SELECT
+          code_id     as id,
+          code_value1 as name,
+          code_value2 as color,
+          code_value3 as level
+        FROM cm_code10
+        WHERE code_id LIKE 'EVT_LEVEL%'
+        and use_flag = 1
+    </select>
+
+
+    <select id="selectCodeList" resultType="CamelHashMap">
+        SELECT
+          code_id     as code_id,
+          code_value1 as code_value1,
+          code_value2 as code_value2,
+          code_value3 as code_value3
+        FROM cm_code10
+        WHERE code_kind = 'WEB_CONF'
+        AND use_flag = 1
+    </select>
+
+    <insert id="insertTemplate">
+        insert into widget_dash_template (
+          template_name,
+          image_data,
+          reg_date
+        )values (
+          #{templateName},
+          #{templateImg},
+          DATE_FORMAT(NOW(),'%Y%m%d%H%i%s')
+        );
+
+        SET @templateSeq = (SELECT MAX(template_seq) FROM widget_dash_template);
+
+        insert into widget_dash_template_mapping(
+          template_seq,
+          seq_no,
+          x,
+          y,
+          width,
+          height,
+          id,
+          `name`,
+          display,
+          conf,
+          `type`
+        )
+        SELECT
+          @templateSeq,
+          seq_no,
+          x,
+          y,
+          width,
+          height,
+          id,
+          `name`,
+          display,
+          conf,
+          `type`
+        FROM widget_dash_resize
+        WHERE tab_seq = #{currTabSeq}
+        order by seq_no;
+    </insert>
+
+    <select id="selectTemplateList" resultType="CamelHashMap">
+        SELECT
+            template_seq,
+            template_name,
+            DATE_FORMAT(CAST(reg_date AS DATETIME), '%Y-%m-%d %H:%i:%s') AS reg_date,
+            image_data
+        FROM widget_dash_template
+        ORDER BY reg_date desc
+    </select>
+
+    <insert id="insertApplyTemplate">
+      DELETE FROM widget_dash_resize WHERE tab_seq = #{currTabSeq};
+      INSERT INTO widget_dash_resize
+          (
+            x,
+            y,
+            width,
+            height,
+            id,
+            `name`,
+            display,
+            conf,
+            `type`,
+            tab_seq
+          )
+        select
+            x,
+            y,
+            width,
+            height,
+            id,
+            `name`,
+            display,
+            conf,
+            `type`,
+            #{currTabSeq}
+        from widget_dash_template_mapping
+        where template_seq = #{templateSeq};
+    </insert>
+
+    <!--
+        변경 할 템플릿에 그리드 컬럼 관리 데이터가 있는 경우
+        해당 컬럼 관리 데이터와 일치 하는 위젯 그리드의 컬럼 정보를 새롭게 입력.
+        이후 기존 컬럼 관리 테이블의 잔여 데이터 모두 삭제 ( widget_dash_resize 기준으로 존재 유무 롹인)
+    -->
+    <insert id="syncCfgGrid">
+        INSERT INTO cm_cfg_page_view_grid (
+            req_url,
+            grid_id,
+            col_datafield,
+            col_text,
+            col_disp_flag,
+            col_sort_idx
+        )
+        SELECT
+          concat('/dash/',ori.seq_no),
+          col.grid_id,
+          col.col_datafield,
+          col.col_text,
+          col.col_disp_flag,
+          col.col_sort_idx
+        FROM
+        widget_dash_template_mapping tm
+        INNER JOIN cm_cfg_page_view_grid col ON tm.id = col.grid_id
+        INNER JOIN widget_dash_resize ori ON ori.id = tm.id
+        WHERE template_seq = #{templateSeq}
+        AND tm.TYPE = 'WIDGET'
+        AND tm.display = 'Grid';
+
+        DELETE FROM cm_cfg_page_view_grid
+        WHERE req_url LIKE '/dash/%'
+        AND NOT EXISTS (
+        SELECT 1 FROM widget_dash_resize WHERE concat('/dash/',seq_no) = req_url
+        )
+    </insert>
+    
+    <delete id="deleteTemplate">
+      delete from widget_dash_template_mapping where template_seq = #{templateSeq};
+
+      delete from widget_dash_template where template_seq = #{templateSeq};
+    </delete>
+
+</mapper>
